@@ -29,8 +29,7 @@
 #include <algorithm>
 #include <ctime>
 #include <vector>
-#define CHANNEL_NUM 8
-#define NODE_NUM 100
+
 
 using namespace ns3;
 using namespace lorawan;
@@ -38,12 +37,14 @@ using namespace lorawan;
 NS_LOG_COMPONENT_DEFINE ("ComplexLorawanNetworkExample");
 
 // Network settings
-int nDevices = 200;
+int nDevices = 200;  //number of nodes in the network
 int nGateways = 1;
 double radius = 7500;
 double simulationTime = 600;
 int maxPeriod = 50;
 int minPeriod = 25;
+int CHANNEL_NUM = 8;
+//int NODE_NUM = nDevices;
 // Channel model
 bool realisticChannelModel = false;
 
@@ -53,8 +54,11 @@ int appPeriodSeconds = 600;
 bool print = true;
 
 
+//number of retransmissions
 
 int numRtx=2;
+
+/*helper class representing a real-time LoRa node, used in this script only*/
 class LoRaNode
 {
 public:
@@ -78,7 +82,7 @@ public:
     int timeslot ;                //timeslot length
 };
 
-Vchnl chnlList[CHANNEL_NUM];     //Global array for the channels in the network (may change to local later)
+  
 
 
 /*comparision function to sort the Nodes based on utilization*/
@@ -88,7 +92,7 @@ bool mycomp(const LoRaNode& n1,const LoRaNode& n2) {
 }
 
 /*function to print the channels and assigned nodes in each channel*/
-void printChannels()
+void printChannels(Vchnl chnlList[])
 {   double U_total =0;
     for (int i=0;i<CHANNEL_NUM;i++)
     {
@@ -110,7 +114,7 @@ void printChannels()
 
 void printNodes(LoRaNode nodes[])
 {
-    for (int i=0;i<NODE_NUM;i++){
+    for (int i=0;i<nDevices;i++){
         
         std::cout <<"Node " << nodes[i].id << " period " << nodes[i].p << " wcet "<< nodes[i].wcet << " Estimated Utilization " << nodes[i].u_est << " Actual Utilization " << nodes[i].u << std:: endl;
     }
@@ -120,7 +124,7 @@ void printNodes(LoRaNode nodes[])
 
 /*Assigns Nodes to the channels based on first fit decreasing algorithm*/
 
-void FirstFit(LoRaNode nodes[], int size){
+void FirstFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
    
     std::sort(nodes,nodes+size,mycomp);  //sort the nodes in decreasing order of utilization
     
@@ -153,7 +157,7 @@ void FirstFit(LoRaNode nodes[], int size){
 
 /*Assigns Nodes to the channels based on best fit decreasing algorithm*/
 
-void BestFit(LoRaNode nodes[], int size){
+void BestFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
     
     std::sort(nodes,nodes+size,mycomp);  //sort the nodes in decreasing order of utilization
    
@@ -197,7 +201,7 @@ void BestFit(LoRaNode nodes[], int size){
 
 /*Assigns Nodes to the channels based on worst fit decreasing algorithm*/
 
-void WorstFit(LoRaNode nodes[], int size){
+void WorstFit(LoRaNode nodes[], int size , Vchnl chnlList[]){
    
     std::sort(nodes,nodes+size,mycomp);
     for(int i=0;i<size;i++){
@@ -358,7 +362,11 @@ main (int argc, char *argv[])
   /***********
    *  Setup  *
    ***********/
+
+/*Real-time LoRa arrays*/
+
    LoRaNode nodeList[nDevices];
+   Vchnl chnlList[CHANNEL_NUM];  
   // Create the time value from the period
   Time appPeriod = Seconds (appPeriodSeconds);
 
@@ -575,10 +583,10 @@ main (int argc, char *argv[])
     
 
    SetMinSF(endDevices, gateways, channel, nodeList);    
-   // FirstFit(node_array,NODE_NUM);
-    BestFit(nodeList, NODE_NUM);
-  //  WorstFit(nodeList, NODE_NUM);
-    printChannels();
+   // FirstFit(node_array,nDevices ,chnlList);
+    BestFit(nodeList, nDevices, chnlList);
+  //  WorstFit(nodeList, nDevicesm,chnlList);
+    printChannels(chnlList);
 
   
   ////////////////
