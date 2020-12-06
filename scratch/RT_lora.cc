@@ -63,6 +63,7 @@ public:
     double p;
     double wcet;
     double u_est;
+    int minSF;
 };
 
 
@@ -132,7 +133,7 @@ void FirstFit(LoRaNode nodes[], int size){
             double act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
             double actU = act_time/currentNode.p;
             
-            if(chnlList[j].c >= actU){
+            if((chnlList[j].c >= actU) && (j>=currentNode.minSF)){
             //std::cout<< chnlList[j].id << " has been assigned Node "<<currentNode.id << endl;
                 currentNode.u=actU;
                 chnlList[j].assignedNodes.push_back(currentNode);
@@ -169,7 +170,7 @@ void BestFit(LoRaNode nodes[], int size){
             act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
             actU = act_time/currentNode.p;
         //    std::cout<< "Act u for channel " << j << ":" << actU <<endl;
-            if((chnlList[j].c >= actU) && (chnlList[j].c - actU)< min ){
+            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)< min ) && (j>=currentNode.minSF)){
                 
                 best = j;
                 bestU = actU;
@@ -209,7 +210,7 @@ void WorstFit(LoRaNode nodes[], int size){
         for( j=0;j<CHANNEL_NUM;j++)
         {   act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
             actU = act_time/currentNode.p;
-            if((chnlList[j].c >= actU) && (chnlList[j].c - actU)> max ){
+            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)> max ) && (j>=currentNode.minSF)){
                 
                 best = j;
                 bestU=actU;
@@ -232,6 +233,86 @@ void WorstFit(LoRaNode nodes[], int size){
     }
 }
 
+/*calculate the minimum Spreading Factor required for each node according to its relative position from the gateway and saves it in the <LoRaNode> array*/
+
+void SetMinSF(NodeContainer endDevices, NodeContainer gateways, Ptr<LoraChannel> channel , LoRaNode nodeList[])
+{
+
+for (NodeContainer::Iterator j = endDevices.Begin (); j != endDevices.End (); ++j)
+    {
+      Ptr<Node> object = *j;
+      int nodeId = object->GetId();
+      Ptr<MobilityModel> position = object->GetObject<MobilityModel> ();
+      NS_ASSERT (position != 0);
+      Ptr<NetDevice> netDevice = object->GetDevice (0);
+      Ptr<LoraNetDevice> loraNetDevice = netDevice->GetObject<LoraNetDevice> ();
+      NS_ASSERT (loraNetDevice != 0);
+      Ptr<ClassAEndDeviceLorawanMac> mac =
+          loraNetDevice->GetMac ()->GetObject<ClassAEndDeviceLorawanMac> ();
+      NS_ASSERT (mac != 0);
+
+      // Try computing the distance from each gateway and find the best one
+      Ptr<Node> bestGateway = gateways.Get (0);
+      Ptr<MobilityModel> bestGatewayPosition = bestGateway->GetObject<MobilityModel> ();
+
+      // Assume devices transmit at 14 dBm
+      double highestRxPower = channel->GetRxPower (14, position, bestGatewayPosition);
+
+      for (NodeContainer::Iterator currentGw = gateways.Begin () + 1; currentGw != gateways.End ();
+           ++currentGw)
+        {
+          // Compute the power received from the current gateway
+          Ptr<Node> curr = *currentGw;
+          Ptr<MobilityModel> currPosition = curr->GetObject<MobilityModel> ();
+          double currentRxPower = channel->GetRxPower (14, position, currPosition); // dBm
+
+          if (currentRxPower > highestRxPower)
+            {
+              bestGateway = curr;
+              bestGatewayPosition = curr->GetObject<MobilityModel> ();
+              highestRxPower = currentRxPower;
+            }
+        }
+
+      // NS_LOG_DEBUG ("Rx Power: " << highestRxPower);
+      double rxPower = highestRxPower;
+
+      // Get the ED sensitivity
+      Ptr<EndDeviceLoraPhy> edPhy = loraNetDevice->GetPhy ()->GetObject<EndDeviceLoraPhy> ();
+      const double *edSensitivity = edPhy->sensitivity;
+
+      if (rxPower > *edSensitivity)
+        {
+          nodeList[nodeId].minSF = 5;
+        }
+      else if (rxPower > *(edSensitivity + 1))
+        {
+          nodeList[nodeId].minSF=4;
+        }
+      else if (rxPower > *(edSensitivity + 2))
+        {
+          nodeList[nodeId].minSF =3;
+        }
+      else if (rxPower > *(edSensitivity + 3))
+        {
+          nodeList[nodeId].minSF =2;
+        }
+      else if (rxPower > *(edSensitivity + 4))
+        {
+          nodeList[nodeId].minSF =1;
+        }
+      else if (rxPower > *(edSensitivity + 5))
+        {
+          nodeList[nodeId].minSF =0;
+        }
+      else // Device is out of range. Assign SF12.
+        {
+          // NS_LOG_DEBUG ("Device out of range");
+          nodeList[nodeId].minSF=0;
+          // NS_LOG_DEBUG ("sfQuantity[6] = " << sfQuantity[6]);
+        }
+    }
+}
 
 int
 main (int argc, char *argv[])
@@ -493,8 +574,7 @@ main (int argc, char *argv[])
  
     
 
- 
-    
+   SetMinSF(endDevices, gateways, channel, nodeList);    
    // FirstFit(node_array,NODE_NUM);
     BestFit(nodeList, NODE_NUM);
   //  WorstFit(nodeList, NODE_NUM);
