@@ -44,7 +44,8 @@ double simulationTime = 600;
 int maxPeriod = 50;
 int minPeriod = 25;
 int CHANNEL_NUM = 8;
-//int NODE_NUM = nDevices;
+int SF_NUM=6;
+int algoNum=0;  // 0 for bestfit, 1 for worstfit, 2 for firstfit, 3 for randomfit
 // Channel model
 bool realisticChannelModel = false;
 
@@ -56,7 +57,7 @@ bool print = true;
 
 //number of retransmissions
 
-int numRtx=2;
+int maxRtx=2;
 
 /*helper class representing a real-time LoRa node, used in this script only*/
 class LoRaNode
@@ -80,6 +81,7 @@ public:
     std:: vector <LoRaNode> assignedNodes;  //vector with assigned Nodes in this channel
     double c=1;                   //Channel Capacity
     int timeslot ;                //timeslot length
+    int numRtx=maxRtx; // Retransmission number for this channel, set to maxRtx for now;
 };
 
   
@@ -122,6 +124,34 @@ void printNodes(LoRaNode nodes[])
 }
 
 
+/*Randomly Assigns Nodes to the channels */
+
+void RandomFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
+   
+    std::sort(nodes,nodes+size,mycomp);  //sort the nodes in decreasing order of utilization
+    Ptr <RandomVariableStream> rv_ch = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (0), "Max", DoubleValue (CHANNEL_NUM-1));
+    for(int i=0;i<size;i++){
+       LoRaNode currentNode = nodes[i];
+       int j = rv_ch->GetInteger();   
+       int vChSf = j%SF_NUM;                   
+       //calculate actual execution time and utilization based on timeslot lenght of virtual channel
+       double act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
+       double actU = act_time/currentNode.p;
+          
+       if((chnlList[j].c >= actU) && (vChSf>=currentNode.minSF)){
+        currentNode.u=actU;
+        chnlList[j].assignedNodes.push_back(currentNode);
+        chnlList[j].c -=actU;
+        }
+        else    //looped through all channels, couldnt find a channel to match the utilization of some node
+        {
+        std::cout<<" Not feasible to assign these nodes to " << CHANNEL_NUM << " channels "<< std:: endl;
+        }
+    }
+}
+
+
+
 /*Assigns Nodes to the channels based on first fit decreasing algorithm*/
 
 void FirstFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
@@ -131,13 +161,15 @@ void FirstFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
     for(int i=0;i<size;i++){
         LoRaNode currentNode = nodes[i];
         int j;                      //need this index later thats why declared here instead of inline declaration
+        int vChSf;
         for( j=0;j<CHANNEL_NUM;j++)
         {
             //calculate actual execution time and utilization based on timeslot lenght of virtual channel
+            vChSf = j%SF_NUM;
             double act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
             double actU = act_time/currentNode.p;
-            
-            if((chnlList[j].c >= actU) && (j>=currentNode.minSF)){
+           
+            if((chnlList[j].c >= actU) && (vChSf>=currentNode.minSF)){
             //std::cout<< chnlList[j].id << " has been assigned Node "<<currentNode.id << endl;
                 currentNode.u=actU;
                 chnlList[j].assignedNodes.push_back(currentNode);
@@ -168,13 +200,15 @@ void BestFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
         int best=0;    //store the best index
         double bestU=0;
         double act_time, actU=0;
+        int vChSf=0;
         for( j=0;j<CHANNEL_NUM;j++)
         {
             //calculate actual execution time and utilization based on timeslot lenght of virtual channel
             act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
             actU = act_time/currentNode.p;
+            vChSf = j%SF_NUM;
         //    std::cout<< "Act u for channel " << j << ":" << actU <<endl;
-            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)< min ) && (j>=currentNode.minSF)){
+            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)< min ) && (vChSf>=currentNode.minSF)){
                 
                 best = j;
                 bestU = actU;
@@ -211,10 +245,12 @@ void WorstFit(LoRaNode nodes[], int size , Vchnl chnlList[]){
         int best=0;
         double bestU=0;
         double act_time=0, actU=0;
+        int vChSf=0;
         for( j=0;j<CHANNEL_NUM;j++)
         {   act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
             actU = act_time/currentNode.p;
-            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)> max ) && (j>=currentNode.minSF)){
+            vChSf = j%SF_NUM;
+            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)> max ) && (vChSf>=currentNode.minSF)){
                 
                 best = j;
                 bestU=actU;
@@ -332,6 +368,9 @@ main (int argc, char *argv[])
   cmd.AddValue ("print", "Whether or not to print various informations", print);
   cmd.AddValue ("Max","Max period ",maxPeriod);
   cmd.AddValue ("Min","Min period",minPeriod);
+  cmd.AddValue ("numCh","Number of channels ",CHANNEL_NUM);
+  cmd.AddValue ("algo",  "algo to use", algoNum);
+
   cmd.Parse (argc, argv);
 
   // Set up logging
@@ -516,7 +555,7 @@ main (int argc, char *argv[])
       LoRaNode temp;
       temp.id = node->GetId();
       temp.p = random_period;
-      temp.wcet = 1*numRtx;
+      temp.wcet = 1*maxRtx;
       temp.u_est=  (double) temp.wcet/temp.p; //((double) rand() / (RAND_MAX));
       nodeList[temp.id]=temp;
       
@@ -558,7 +597,7 @@ main (int argc, char *argv[])
     for(int i=0;i<CHANNEL_NUM;i++)
     {
         chnlList[i].id=i;
-        switch (i%6) {
+        switch (i%SF_NUM) {
             case 0:
                 chnlList[i].timeslot = 1810;
                 break;
@@ -580,12 +619,25 @@ main (int argc, char *argv[])
     
     
  
-    
-
-   SetMinSF(endDevices, gateways, channel, nodeList);    
-   // FirstFit(node_array,nDevices ,chnlList);
-    BestFit(nodeList, nDevices, chnlList);
-  //  WorstFit(nodeList, nDevicesm,chnlList);
+   SetMinSF(endDevices, gateways, channel, nodeList); 
+   switch(algoNum)
+   {
+     case 0: 
+          BestFit(nodeList,nDevices,chnlList);
+          break;
+     case 1:
+          WorstFit(nodeList,nDevices,chnlList);
+          break;
+     case 2:
+          FirstFit(nodeList,nDevices,chnlList);
+          break;
+     case 3:
+          RandomFit(nodeList,nDevices,chnlList); 
+          break;
+     default:
+          break;  
+   }
+ 
     printChannels(chnlList);
 
   
