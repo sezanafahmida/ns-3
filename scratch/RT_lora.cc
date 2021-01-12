@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <ctime>
 #include <vector>
+#include <cmath>
 
 
 using namespace ns3;
@@ -39,13 +40,19 @@ NS_LOG_COMPONENT_DEFINE ("ComplexLorawanNetworkExample");
 // Network settings
 int nDevices = 200;  //number of nodes in the network
 int nGateways = 1;
-double radius = 7500;
+double radius = 3000;
 double simulationTime = 600;
-int maxPeriod = 50;
-int minPeriod = 25;
+int maxPeriod = 20;
+int minPeriod = 10;
 int CHANNEL_NUM = 8;
 int SF_NUM=6;
 int algoNum=0;  // 0 for bestfit, 1 for worstfit, 2 for firstfit, 3 for randomfit
+int schedulable=1; //0 for not schedulable, 1 for schedulable
+double U_total =0;  //total network utilization (after assignment)
+double U_est =0;  //total estimated network utilization 
+double U_target= 50;
+int total_assigned=0;
+double total_txEnergy=0;
 // Channel model
 bool realisticChannelModel = false;
 
@@ -69,6 +76,7 @@ public:
     double wcet;
     double u_est;
     int minSF;
+
 };
 
 
@@ -95,7 +103,7 @@ bool mycomp(const LoRaNode& n1,const LoRaNode& n2) {
 
 /*function to print the channels and assigned nodes in each channel*/
 void printChannels(Vchnl chnlList[])
-{   double U_total =0;
+{   
     for (int i=0;i<CHANNEL_NUM;i++)
     {
         Vchnl currentCh = chnlList[i];
@@ -103,13 +111,33 @@ void printChannels(Vchnl chnlList[])
         std::cout << " Channel " << i << " Remaining Capacity " << chnlList[i].c << " Channel Utilization " << 1 - chnlList[i].c << std:: endl;
         
         for (uint32_t j =0;j<currentCh.assignedNodes.size();j++){
-            std::cout << currentCh.assignedNodes.at(j).id << " ";
+            
+            LoRaNode currentNode= currentCh.assignedNodes.at(j);
+            std::cout << currentNode.id << " ";
+            total_txEnergy += (0.029*currentNode.wcet*currentCh.timeslot*3.3)/1000;
         }
         std:: cout<< std:: endl;
     
         
     }
     std::cout << " Total Network Utilization " << U_total << std:: endl;
+  
+}
+
+
+/*function to print output to the file*/
+
+void printToFile(Vchnl chnlList[], LoRaNode nodes[])
+{
+
+/*create the output file*/
+ 
+   std::ofstream logfile;
+   logfile.open ("rtLora.csv",std::ios_base::app);
+
+   logfile << algoNum << "," << nDevices << "," << radius << "," << CHANNEL_NUM << "," << U_total <<"," <<U_est << "," << schedulable << ","<< double(total_assigned)/double(nDevices) << ","  << total_txEnergy <<"\n";
+
+ 
 }
 
 /*function to print the nodes in the network*/
@@ -117,12 +145,31 @@ void printChannels(Vchnl chnlList[])
 void printNodes(LoRaNode nodes[])
 {
     for (int i=0;i<nDevices;i++){
-        
+        U_est += nodes[i].u_est;
         std::cout <<"Node " << nodes[i].id << " period " << nodes[i].p << " wcet "<< nodes[i].wcet << " Estimated Utilization " << nodes[i].u_est << " Actual Utilization " << nodes[i].u << std:: endl;
     }
+ 
+   std::cout << " Total estimated Network Utilization " << U_est << std:: endl;
     
 }
 
+/*UUnifast algorithm by Enrico Bini*/
+std::vector <double> UUnifast(int nDevices, double U_target)
+{
+ std::vector <double> u_set;
+ double sum=U_target;
+ double nextSum=0;
+ Ptr <RandomVariableStream> rv = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (0), "Max", DoubleValue (1));
+ for (int i=0; i< nDevices-1 ;i++) {
+
+   double exp = 1/(double(nDevices)-double(i));
+   nextSum = sum* pow(rv->GetValue(), exp);
+   u_set.push_back(sum-nextSum);
+   sum=nextSum;
+   } 
+  u_set.push_back(sum);
+  return u_set;
+}
 
 /*Randomly Assigns Nodes to the channels */
 
@@ -138,14 +185,16 @@ void RandomFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
        double act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
        double actU = act_time/currentNode.p;
           
-       if((chnlList[j].c >= actU) && (vChSf>=currentNode.minSF)){
+       if((chnlList[j].c >= actU) && (vChSf<=currentNode.minSF)){
         currentNode.u=actU;
         chnlList[j].assignedNodes.push_back(currentNode);
         chnlList[j].c -=actU;
+        total_assigned+=1;
         }
         else    //looped through all channels, couldnt find a channel to match the utilization of some node
         {
         std::cout<<" Not feasible to assign these nodes to " << CHANNEL_NUM << " channels "<< std:: endl;
+        schedulable=0;
         }
     }
 }
@@ -169,11 +218,12 @@ void FirstFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
             double act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
             double actU = act_time/currentNode.p;
            
-            if((chnlList[j].c >= actU) && (vChSf>=currentNode.minSF)){
+            if((chnlList[j].c >= actU) && (vChSf<=currentNode.minSF)){
             //std::cout<< chnlList[j].id << " has been assigned Node "<<currentNode.id << endl;
                 currentNode.u=actU;
                 chnlList[j].assignedNodes.push_back(currentNode);
                 chnlList[j].c -=actU;
+                total_assigned+=1;
              //   std::cout<< chnlList[j].id << " has capacity "<<chnlList[j].c << endl;
                 break;
             }
@@ -182,6 +232,7 @@ void FirstFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
         if(j==CHANNEL_NUM)     //looped through all channels, couldnt find a channel to match the utilization of some node
         {
         std::cout<<" Not feasible to assign these nodes to " << CHANNEL_NUM << " channels "<< std:: endl;
+        schedulable=0;
         }
     }
 }
@@ -208,11 +259,12 @@ void BestFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
             actU = act_time/currentNode.p;
             vChSf = j%SF_NUM;
         //    std::cout<< "Act u for channel " << j << ":" << actU <<endl;
-            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)< min ) && (vChSf>=currentNode.minSF)){
+            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)< min ) && (vChSf<=currentNode.minSF)){
                 
                 best = j;
                 bestU = actU;
                 min = chnlList[j].c - actU;
+                
             }
             
         }
@@ -220,14 +272,17 @@ void BestFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
         
         if(min==1000)
         {
-        std::cout<<" Not feasible to assign these nodes to " << CHANNEL_NUM << " channels "<< std:: endl;
-        }
+        std::cout<<" Not feasible to assign this node to any of the " << CHANNEL_NUM << " channels "<< std:: endl;
+        std::cout<< "Node " << currentNode.id << " utization " << currentNode.u_est << " min SF " << currentNode.minSF << std:: endl;
+         }
         else {
           //  std::cout<< best << " has been assigned Node "<<currentNode.id << endl;
             currentNode.u=bestU;
             chnlList[best].assignedNodes.push_back(currentNode);
             chnlList[best].c -=bestU;
           //  std::cout<< best << " has capacity "<<chnlList[best].c << endl;
+            schedulable=0;
+            total_assigned+=1;
         }
     }
 }
@@ -250,11 +305,12 @@ void WorstFit(LoRaNode nodes[], int size , Vchnl chnlList[]){
         {   act_time = (chnlList[j].timeslot*currentNode.wcet)/1000;
             actU = act_time/currentNode.p;
             vChSf = j%SF_NUM;
-            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)> max ) && (vChSf>=currentNode.minSF)){
+            if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)> max ) && (vChSf<=currentNode.minSF)){
                 
                 best = j;
                 bestU=actU;
                 max = chnlList[j].c - actU;
+               
             }
             
         }
@@ -263,11 +319,13 @@ void WorstFit(LoRaNode nodes[], int size , Vchnl chnlList[]){
         if(max==-999)
         {
         std::cout<<" Not feasible to assign these nodes to " << CHANNEL_NUM << " channels "<< std:: endl;
+        schedulable=0;
         }
         else {
             currentNode.u = bestU;
             chnlList[best].assignedNodes.push_back(currentNode);
             chnlList[best].c -=bestU;
+             total_assigned+=1;
 
         }
     }
@@ -370,6 +428,7 @@ main (int argc, char *argv[])
   cmd.AddValue ("Min","Min period",minPeriod);
   cmd.AddValue ("numCh","Number of channels ",CHANNEL_NUM);
   cmd.AddValue ("algo",  "algo to use", algoNum);
+  cmd.AddValue("U", "total utilization before assignment" , U_target);
 
   cmd.Parse (argc, argv);
 
@@ -405,7 +464,9 @@ main (int argc, char *argv[])
 /*Real-time LoRa arrays*/
 
    LoRaNode nodeList[nDevices];
-   Vchnl chnlList[CHANNEL_NUM];  
+   Vchnl chnlList[CHANNEL_NUM]; 
+
+ 
   // Create the time value from the period
   Time appPeriod = Seconds (appPeriodSeconds);
 
@@ -545,21 +606,24 @@ main (int argc, char *argv[])
   rv->SetStream(1);
   ApplicationContainer appContainer;
   
-  
+  /*initialize LoRaNodes*/
+  std::vector<double> u_set= UUnifast(nDevices,U_target);
   for (NodeContainer::Iterator j = endDevices.Begin (); j != endDevices.End (); ++j)
     { 
 
       Ptr<Node> node = *j;
-      int random_period = rv->GetInteger();
+     // int random_period = rv->GetInteger();
       //std::cout << "node " << node->GetId() << " period " << random_period << std:: endl; 
       LoRaNode temp;
       temp.id = node->GetId();
-      temp.p = random_period;
-      temp.wcet = 1*maxRtx;
-      temp.u_est=  (double) temp.wcet/temp.p; //((double) rand() / (RAND_MAX));
+     // temp.p = random_period;
+      temp.wcet = 1.810*maxRtx;
+      temp.u_est= u_set.at(temp.id);//(double) temp.wcet/temp.p; //((double) rand() / (RAND_MAX));
+    //  std::cout<< "node" << temp.id  << "u " << temp.u_est << "\n";
+      temp.p = temp.wcet/temp.u_est;
       nodeList[temp.id]=temp;
       
-      Time random_time = Seconds(random_period);
+      Time random_time = Seconds(temp.p);//Seconds(random_period);
       appHelper.SetPeriod(random_time);
       appContainer.Add(appHelper.Install(*j)); 
 
@@ -660,7 +724,7 @@ main (int argc, char *argv[])
 
   LoraPacketTracker &tracker = helper.GetPacketTracker ();
   std::cout << tracker.CountMacPacketsGlobally (Seconds (0), appStopTime + Hours (1)) << std::endl;
-
+  printToFile(chnlList,nodeList);
 
   
   return 0;
