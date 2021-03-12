@@ -67,8 +67,8 @@ bool print = true;
 
 //number of retransmissions and timeslots
 
-int maxRtx=2;
-int slotNum=2;
+int maxRtx=1;
+int slotNum=1;
 
 /*helper class representing a real-time LoRa node, used in this script only*/
 class LoRaNode
@@ -77,6 +77,7 @@ public:
     int id;
     double u;
     double p;
+    double d;
     double wcet;
     double u_est;
     int maxDR;
@@ -92,7 +93,7 @@ class Vchnl
 {
 public:
     int id;
-    std:: vector <LoRaNode> assignedNodes;  //vector with assigned Nodes in this channel
+    std:: vector <LoRaNode> assignedNodes;  //assigned Nodes in this channel
     double c=1;                   //Channel Capacity
     double timeslot ;                //timeslot length
     int numRtx=maxRtx; // Retransmission number for this channel, set to maxRtx for now;
@@ -257,7 +258,7 @@ void printNodes(LoRaNode nodes[])
 {
     for (int i=0;i<nDevices;i++){
         U_est += nodes[i].u_est;
-        std::cout <<"Node " << nodes[i].id << " period " << nodes[i].p << " wcet "<< nodes[i].wcet << " Estimated Utilization " << nodes[i].u_est << " Actual Utilization " << nodes[i].u <<" distance from gateway " << nodes[i].distance <<" Maximum Datarate " << nodes[i].maxDR  <<" Minimum Utilization " << nodes[i].minU << std:: endl;
+        std::cout <<"Node " << nodes[i].id << " period " << nodes[i].p << " wcet "<< nodes[i].wcet << " deadline " << nodes[i].d << " Estimated Utilization " << nodes[i].u_est << " Actual Utilization " << nodes[i].u <<" Maximum Datarate " << nodes[i].maxDR  <<" Minimum Utilization " << nodes[i].minU << std:: endl;
     }
  
    std::cout << " Total estimated Network Utilization " << U_est << " Hyper Period " << hyperPeriod << std:: endl;
@@ -318,7 +319,7 @@ void RandomFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
        int vChDR = j%SF_NUM;                   
        //calculate actual execution time and utilization based on timeslot lenght of virtual channel
        double act_time = (chnlList[j].timeslot/MAX_TIMESLOT)*currentNode.wcet;
-       double actU = act_time/currentNode.p;
+       double actU = act_time/currentNode.d;
           
        if((chnlList[j].c >= actU) && (vChDR<=currentNode.maxDR)){
         currentNode.u=actU;
@@ -352,7 +353,7 @@ void FirstFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
             //calculate actual execution time and utilization based on timeslot lenght of virtual channel
             vChDR = j%SF_NUM;
             double act_time = (chnlList[j].timeslot/MAX_TIMESLOT)*currentNode.wcet;
-            double actU = act_time/currentNode.p;
+            double actU = act_time/currentNode.d;
            
             if((chnlList[j].c >= actU) && (vChDR<=currentNode.maxDR)){
             //std::cout<< chnlList[j].id << " has been assigned Node "<<currentNode.id << endl;
@@ -392,7 +393,7 @@ void FirstFitMinUtil(LoRaNode nodes[], int size, Vchnl chnlList[]){
             //calculate actual execution time and utilization based on timeslot lenght of virtual channel
             vChDR = j%SF_NUM;
             double act_time = (chnlList[j].timeslot/MAX_TIMESLOT)*currentNode.wcet;
-            double actU = act_time/currentNode.p;
+            double actU = act_time/currentNode.d;
            
             if((chnlList[j].c >= actU) && (vChDR<=currentNode.maxDR)){
             //std::cout<< chnlList[j].id << " has been assigned Node "<<currentNode.id << endl;
@@ -478,7 +479,7 @@ void BestFit(LoRaNode nodes[], int size, Vchnl chnlList[]){
             //calculate actual execution time and utilization based on timeslot lenght of virtual channel
             act_time = (chnlList[j].timeslot/MAX_TIMESLOT)*currentNode.wcet;
             //std::cout<< " actual time for node : "<< i << " " << chnlList[j].timeslot << "  " <<  MAX_TIMESLOT<< " in channel " << j  << std:: endl;
-            actU = act_time/currentNode.p;
+            actU = act_time/currentNode.d;
             vChDR = j%SF_NUM;
         //    std::cout<< "Act u for channel " << j << ":" << actU <<endl;
             if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)< min ) && (vChDR<=currentNode.maxDR)){
@@ -530,7 +531,7 @@ void BestFitMinUtil(LoRaNode nodes[], int size, Vchnl chnlList[]){
             //calculate actual execution time and utilization based on timeslot lenght of virtual channel
             act_time = (chnlList[j].timeslot/MAX_TIMESLOT)*currentNode.wcet;
             //std::cout<< " actual time for node : "<< i << " " << chnlList[j].timeslot << "  " <<  MAX_TIMESLOT<< " in channel " << j  << std:: endl;
-            actU = act_time/currentNode.p;
+            actU = act_time/currentNode.d;
             vChDR = j%SF_NUM;
         //    std::cout<< "Act u for channel " << j << ":" << actU <<endl;
             if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)< min ) && (vChDR<=currentNode.maxDR)){
@@ -581,7 +582,7 @@ void WorstFit(LoRaNode nodes[], int size , Vchnl chnlList[]){
         int vChDR=0;
         for( j=0;j<CHANNEL_NUM;j++)
         {   act_time = (chnlList[j].timeslot/MAX_TIMESLOT)*currentNode.wcet;
-            actU = act_time/currentNode.p;
+            actU = act_time/currentNode.d;
             vChDR = j%SF_NUM;
             if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)> max ) && (vChDR<=currentNode.maxDR)){
                 
@@ -626,14 +627,14 @@ void WorstFitMinUtil(LoRaNode nodes[], int size , Vchnl chnlList[]){
         int vChDR=0;
         for( j=0;j<CHANNEL_NUM;j++)
         {   act_time = (chnlList[j].timeslot/MAX_TIMESLOT)*currentNode.wcet;
-            actU = act_time/currentNode.p;
+            actU = act_time/currentNode.d;
             vChDR = j%SF_NUM;
             if((chnlList[j].c >= actU) && ((chnlList[j].c - actU)> max ) && (vChDR<=currentNode.maxDR)){
                 
                 best = j;
                 bestU=actU;
                 max = chnlList[j].c - actU;
-               
+                
             }
             
         }
@@ -1007,7 +1008,7 @@ main (int argc, char *argv[])
   Time appStopTime = Seconds (simulationTime);
   PeriodicSenderHelper appHelper = PeriodicSenderHelper ();
   Ptr <RandomVariableStream> rv = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (minPeriod), "Max", DoubleValue (maxPeriod));
-  Ptr <RandomVariableStream> rv_harmonic = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (13), "Max", DoubleValue (20)); //random exponent
+  Ptr <RandomVariableStream> rv_harmonic = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (12), "Max", DoubleValue (20)); //random exponent
   rv->SetStream(1);
   rv_harmonic->SetStream(1);
   ApplicationContainer appContainer;
@@ -1025,9 +1026,10 @@ main (int argc, char *argv[])
       temp.id = node->GetId();
       temp.p = (pow(2,random_exponent))/1000; //s
       temp.wcet = MAX_TIMESLOT*slotNum*maxRtx;
+      temp.d =temp.p-MAX_TIMESLOT;
    //   temp.u_est= u_set.at(temp.id);//(double) temp.wcet/temp.p; 
-      temp.u_est = temp.wcet/temp.p;
-      temp.p = temp.wcet/temp.u_est;
+      temp.u_est = temp.wcet/temp.d;
+     // temp.p = temp.wcet/temp.u_est;
       nodeList[temp.id]=temp;
       
       Time random_time = Seconds(temp.p);//Seconds(random_period);
