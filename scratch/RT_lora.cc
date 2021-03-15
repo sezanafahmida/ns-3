@@ -30,6 +30,7 @@
 #include <ctime>
 #include <vector>
 #include <cmath>
+#include <queue>
 
 
 using namespace ns3;
@@ -38,7 +39,7 @@ using namespace lorawan;
 NS_LOG_COMPONENT_DEFINE ("ComplexLorawanNetworkExample");
 
 // Network settings
-int nDevices = 200;  //number of nodes in the network
+int nDevices = 40;  //number of nodes in the network
 int nGateways = 1;
 double radius = 5000;
 double simulationTime = 600;
@@ -83,9 +84,42 @@ public:
     int maxDR;
     double distance;
     double minU;
+    double nextRel=0; //next release time
+    std::vector <double> assignedSlots; //assigned timeslots 
 
 };
 
+
+//874ec855cf0dce79dc8c0f3e623f9811389da9c6
+
+/*class for task instance/job created for each node*/
+
+struct job
+{
+
+	int id; //node id;
+	double p;   //period
+	double relD;  //relative deadline
+	double absD;  //absolute deadline
+	double wcet; 
+        double relTime; //release time
+        
+};
+
+struct compareByabsD{
+  bool   operator()(const job& a, const job& b) 
+     {
+	return a.absD > b.absD;
+     }
+};
+
+
+struct compareByP{
+   bool  operator()(const job& a, const job& b) 
+     {
+	return a.p > b.p;
+     }
+};
 
 
 /*Class for virtual channel*/
@@ -99,10 +133,139 @@ public:
     int numRtx=maxRtx; // Retransmission number for this channel, set to maxRtx for now;
     int hyperperiod=1;
     double txEnergy=0;
+    std::vector<job> schedule;  //holds the schedule of transmission for this channel
 };
+
+std:: priority_queue <job, std::vector <job>, compareByabsD> readyQueue;
+std:: priority_queue <job, std::vector <job>, compareByP> eventQueue;
+
+/*create and add all instances of a job*/
+
+void addJobs(LoRaNode node, Vchnl chnl) 
+{
+int count = floor(chnl.hyperperiod/node.p); //number of instances
+
+for (int i =0;i<=count;i++)
+{
+double period = node.p*i;
+job temp;
+temp.id =node.id;
+temp.p = period;
+temp.relD = node.p;
+temp.wcet = chnl.numRtx*slotNum;
+temp.absD= period+ node.p;
+std::cout << "job " << node.id << " period " << period << " deadline " << temp.absD << "\n";
+eventQueue.push(temp);
+}
+
+}
+
+
+/*add all jobs released in the last timeslot to readyqueue*/
+
+void releaseJobs(Vchnl* chnl, int sn )
+
+{
+      double slotStart = chnl->timeslot*(sn-1);
+      double slotEnd = slotStart+ chnl->timeslot;
+      for(int j =0;j<chnl->assignedNodes.size() ;j++ ) 
+        {
+         double releaseTime = chnl->assignedNodes.at(j).nextRel;
+         if(releaseTime >=slotStart && releaseTime <=slotEnd)
+           {
+                   job temp;
+        	   LoRaNode node = chnl->assignedNodes.at(j);
+                   temp.id = node.id;
+                   temp.p = node.p;
+                   temp.relTime = releaseTime;
+                   temp.relD = node.d;
+                   temp.absD = temp.relTime + temp.relD;
+                   temp.wcet = chnl->numRtx*slotNum;
+                   readyQueue.push(temp);
+                   chnl->assignedNodes.at(j).nextRel += node.p; 
+                   std::cout << " node " << node.id << << " ready in slotNum " << sn << " next release time " << chnl->assignedNodes.at(j).nextRel  <<"\n" ;
+           }
+        }
+
+}
+
+/*creates an EDF schedule for the assigned nodes in a channel*/
+  
+void EDFscheduler(Vchnl chnl) 
+{
+  chnl.hyperperiod = chnl.hyperperiod/1000;
+  double slotHp = floor(chnl.hyperperiod/chnl.timeslot); //convert hyperperiod to timeslots
+  std::cout << "hyperperiod " << chnl.hyperperiod << " in timeslots " << slotHp << "\n";
+
+
+
+
+  bool idle = true ; // indicates idle slot
+  job currJob; //currently executing job ,idle = true means no job is executing
+
+
+  for (int i = 1;i<slotHp;i++)
+  {  
+    
+    //reduce execution time of currJob (if any) , check whether its finished or not 
+    if( !idle)
+    { 
+      
+      currJob.wcet = currJob.wcet - 1; 
+      
+      if(currJob.wcet <=0)
+      {
+      //check deadline 
+        double timeNow = (i-1)*chnl.timeslot;
+        if(currJob.absD < timeNow) std:: cout << "Job " << currJob.id << " missed its deadline \n";
+        idle = true;
+        
+      } 
+    } 
+ 
+   
+
+   //add all released jobs to readyqueue
+
+    releaseJobs(&chnl,i); //release jobs for this slot;
+    job readyJob;
+
+
+   //pop readyqueue for highest priority job
+   //if a job is already runnning, compare the highest priority job with this one
+   //execute the job with the highest priority among two, save the other back to readyqueue
+   if(!readyQueue.empty()) 
+   {
+        job readyJob = readyQueue.top();
+        
+   
+       if(!idle && currJob.absD > readyJob.absD)
+        {
+         readyQueue.push(currJob); 
+         currJob = readyJob; //preemption
+         readyQueue.pop(); 
+         idle = false;
+        }
+       else if (idle) 
+       {
+         currJob = readyJob;
+         idle = false;  
+         readyQueue.pop();
+       }
+  }
+
+if(!idle) std::cout << " slot " << i << " current Job " <<  currJob.id << " current jobs wcet "  <<currJob.wcet << " \n ";
+
 
   
 
+
+   
+  
+
+ } //end for 
+
+}
 
 /*comparision function to sort the Nodes based on non-increasing (highest one first) of maximum utilization*/
 bool compBymaxU(const LoRaNode& n1,const LoRaNode& n2) {
@@ -178,7 +341,7 @@ void printChannels(Vchnl chnlList[])
  	}
         std:: cout << "txEnergy " <<currentCh.txEnergy << std:: endl;
         total_txEnergy += currentCh.txEnergy;
-        
+        if(currentCh.assignedNodes.size() >0) EDFscheduler(currentCh); //only call the scheduler if there are any nodes assigned to a channel
     }
     std::cout << " Total Network Utilization " << U_total << std:: endl;
   
