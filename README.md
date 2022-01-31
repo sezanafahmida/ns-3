@@ -1,3 +1,3 @@
-# RTLoRa
+# Battery Lifespan
 
-NS3 simulation script for real-time LoRa.  
+NS3 simulation script for battery lifespan paper.  
