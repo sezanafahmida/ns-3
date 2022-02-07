@@ -77,6 +77,7 @@ double networkLife = 1440; //network lifetimef
 int day=1;
 float alpha =0.7;
 float networkLat = 0; 
+float networkMax=-9999;
 /*helper function to retrieve the time on air*/
 float theta =1;
 double GetToA(int dr) {
@@ -644,7 +645,7 @@ void printToFile(LoraPacketTracker tracker, Time appStopTime)
    std::ofstream logfile;
    logfile.open ("sim_results_0122.csv",std::ios_base::app);
 
-logfile << h << "," << nDevices << "," << radius << "," << tracker.CountMacPacketsGlobally (Seconds (0), appStopTime + Hours (1)) << " ," << overall_attempt << " , " << overall_success << " , " << overall_failed << ", "<< total_energy <<" ," << total_packet<< ", " << double(overall_attempt)/double(total_packet) << "," <<networkLife <<  "," << networkLat << "," << day <<"\n";
+logfile << h << "," << nDevices << "," << radius << "," << tracker.CountMacPacketsGlobally (Seconds (0), appStopTime + Hours (1)) << " ," << overall_attempt << " , " << overall_success << " , " << overall_failed << ", "<< total_energy <<" ," << total_packet<< ", " << double(overall_attempt)/double(total_packet) << "," <<networkLife <<  "," << networkMax << "," << day <<"\n";
 }
 
 //prints the timeslot variation of the network
@@ -826,7 +827,7 @@ int index=0;
 while((input>>d)&&(index<nDevices))
 {
 //bList[index].lifeSpan -= d;
-bList[index].Age += d;
+bList[index].Age = d;
 //std::cout<<"i:"<<index<< " "<<d<<std::endl;
 //if(index==b->id) break;
 index++;
@@ -854,7 +855,7 @@ double max = temp.at(nDevices-1);
 
 for (int i =0;i<nDevices;i++)
 {
-if(max>0) bList[i].normAge = (bList[i].Age - min) /(max -min) ;
+if(max>0) bList[i].normAge = 1;//bList[i].Age / max;//(bList[i].Age - min) /(max -min) ;  //bList[i].Age / max;
 else bList[i].normAge =1;
 std::cout << "Node " << i << " Age " <<  bList[i].Age << " " <<max << " " << bList[i].normAge << "\n";
 }
@@ -1229,23 +1230,25 @@ void printAvgLatency(loraBattery bList[])
 std::ofstream out;
 out.open("AvgLatency.csv");
 float networkSum =0;
-float networkMax =-9999;
+networkMax =-9999;
 for (int i =0;i<nDevices;i++)
 {
-float sum=0;
-float max=-99999;
-float avg = 1;
-for( int k=0;k<bList[i].latency.size();k++)
-{
-sum+= bList[i].latency[k];
-if(bList[i].latency[k]>max) {max = bList[i].latency[k];}
-}
-sum+= bList[i].avgLat*bList[i].latency.size()*bList[i].curDay; //taking into account the previous day's latency
-avg = sum/(bList[i].latency.size()*(bList[i].curDay+1));
-bList[i].avgLat = avg;
-if(max>bList[i].maxLat) bList[i].maxLat = max;
-out << avg <<","<<bList[i].maxLat << std::endl;
-networkSum+=sum;
+
+ float sum=0;
+ float max=-99999;
+ float avg = 1;
+ for( int k=0;k<bList[i].latency.size();k++)
+ {
+ sum+= bList[i].latency[k];
+ if(bList[i].latency[k]>max) {max = bList[i].latency[k];}
+ }
+ sum+= bList[i].avgLat*bList[i].latency.size()*bList[i].curDay; //taking into account the previous day's latency
+ avg = sum/(bList[i].latency.size()*(bList[i].curDay+1));
+ bList[i].avgLat = avg;
+ if(max>bList[i].maxLat) bList[i].maxLat = max;
+ if(bList[i].maxLat>networkMax) networkMax= bList[i].maxLat;
+ out << avg <<","<<bList[i].maxLat << std::endl;
+ networkSum+=sum;
 }
 networkLat = networkSum/(total_packet*(day));
 out.close();
@@ -1529,7 +1532,7 @@ main (int argc, char *argv[])
   for (NodeContainer::Iterator j = endDevices.Begin (); j != endDevices.End (); ++j)
     { 
       /*provide random period to applications*/
-      int randomValue = 30;//rv->GetInteger()*2; 
+      int randomValue = rv->GetInteger()*2; 
       Time random_time = Minutes(randomValue);
       appHelper.SetPeriod(random_time);
       appHelper.initDelayValue= 0; //chosenTs*tsLen;
