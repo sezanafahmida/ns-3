@@ -6,6 +6,9 @@ import statistics
 from math import  exp
 import os
 import sys
+import random
+
+random.seed(0);
 
 TimeSlots_Length = int(sys.argv[1])  #2 #min
 day = int(sys.argv[2])
@@ -87,7 +90,7 @@ for file in sorted_files:
     filename = path+ "/" + file
     #print(filename) 
     meanFile = "/home/gp7532/ns-3/Mean/mean_"+ str(id)
-
+    dayOffset = random.randint(1,100);
     
     soc = np.loadtxt(filename, dtype =float)   #get the generated SOC trace
    # print(soc)
@@ -97,7 +100,7 @@ for file in sorted_files:
 
         prev  =0
    #print(mean)
-    d,d_cal,d_cycle = Linear_degradation(soc,day,prev) #get the new degradation, D_cycle
+    d,d_cal,d_cycle = Linear_degradation(soc,day+dayOffset,prev) #get the new degradation, D_cycle
     z = Nonlinear_degradation(d)  #get non-linear Degradation
     if z>=0.2:
         print("battery died on day: ", day)
