@@ -116,7 +116,8 @@ LoraPacketTracker::TransmissionCallback (Ptr<Packet const> packet, uint32_t edId
     {
       NS_LOG_INFO ("PHY packet " << packet
                                  << " was transmitted by device "
-                                 << edId);
+                              << edId);
+
       // Create a packetStatus
       PacketStatus status;
       status.packet = packet;
@@ -369,8 +370,33 @@ LoraPacketTracker::PrintPhyPacketsPerGw (Time startTime, Time stopTime,
           }
       }
 
-    return std::to_string (sent) + " " +
-      std::to_string (received);
+    return std::to_string (sent) + "," +
+      std::to_string (received) + ","+ std::to_string(double(received)/double(sent));
+  }
+
+  double
+  LoraPacketTracker::CountMacPacketsNode (Time startTime, Time stopTime, uint32_t nodeId)
+  {
+    NS_LOG_FUNCTION (this << startTime << stopTime);
+
+    double sent = 0;
+    double received = 0;
+    for (auto it = m_macPacketTracker.begin ();
+         it != m_macPacketTracker.end ();
+         ++it)
+      { 
+        
+        if ((*it).second.sendTime >= startTime && (*it).second.sendTime <= stopTime && (*it).second.senderId == nodeId)
+           {
+            sent++;
+            if ((*it).second.receptionTimes.size ())
+              {
+                received++;
+              }
+          }
+      }
+
+    return (double(received)/double(sent));
   }
 
   std::string

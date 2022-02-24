@@ -13,6 +13,7 @@ random.seed(0);
 TimeSlots_Length = int(sys.argv[1])  #2 #min
 day = int(sys.argv[2])
 N = int(sys.argv[3])
+initD = int(sys.argv[4])
 def Linear_degradation(soc,days,d_cycle):
     
     n = 0
@@ -90,8 +91,12 @@ for file in sorted_files:
     filename = path+ "/" + file
     #print(filename) 
     meanFile = "/home/gp7532/ns-3/Mean/mean_"+ str(id)
-    dayOffset = random.randint(1,100);
-    
+
+    if(initD ==1):
+        dayOffset = random.randint(1,100);
+    else:
+        dayOffset = 0;#random.randint(1,100);
+    #print(dayOffset);
     soc = np.loadtxt(filename, dtype =float)   #get the generated SOC trace
    # print(soc)
     if os.path.isfile(meanFile):

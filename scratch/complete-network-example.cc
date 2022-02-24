@@ -146,7 +146,7 @@ double curSOC=bCap;  //initial charge in battery in J
 //double minSOC=0;
 //double avgSOC=0;
 //int lastUpdate=0;
-int curDay=15;
+int curDay=1;
 //int prevUpdate =0;
 double budget =0;
 double curE = 0; //energy consumed by transmission (including retransmission attempts) accessed by updateSOC() periodically
@@ -186,6 +186,9 @@ float avgLat=0;
 Time lastGeneratedPkt; //holds the time of the most recently generated packet
 float maxLat=0;
 float buffer = 1; //used to emulate piggyback, holds the latest age until ack is received 
+double prr = 0; //prr of node
+double avgR = 0;///average retx attempts per node
+double txE = 0; //tx energy consumption of node
 
 /********************************UPPER LAYER ******************/ 
 
@@ -355,8 +358,8 @@ void initialize()
           X.push_back(g1d);
         }
 	std::string value;
-	int day = curDay% 365;
-	int Cmin = day * 1440;
+	int day1 = curDay% 365;
+	int Cmin = day1 * 1440;
         
 	for (int i = 0; i < P*T; i++)
 	{              
@@ -503,13 +506,14 @@ void decideTS()
 
 
 //function to count total successful packets and transmission attempts
-void packetCounter (uint32_t id,uint8_t reqTx, bool success, Time firstAttempt, Ptr<Packet> packet)
+void packetCounter (uint32_t id,loraBattery bList[], uint8_t reqTx, bool success, Time firstAttempt, Ptr<Packet> packet)
 { 
 
 if(success)
 {   
     overall_attempt+= reqTx;
     overall_success++;
+    
 }
 else
 {
@@ -518,6 +522,8 @@ else
     overall_failed++;
     
 }
+
+bList[id].avgR += int(reqTx);
 }
 
 
@@ -640,6 +646,7 @@ float lat = (Simulator::Now().GetSeconds() - bList[id].lastGeneratedPkt.GetSecon
 bList[id].latency.push_back(lat);
 int index = (lat/tsLen);
 receptionSlots[index]+=1;
+
 }
 
 
@@ -675,7 +682,7 @@ else
 bList[id].ProbabilityUpdate(t);
 
 //update the latest normAge 
-bList[id].normAge = bList[id].buffer;
+if(b==0)bList[id].normAge = bList[id].buffer;
 }
 
 //prints the summary output file
@@ -688,7 +695,70 @@ void printToFile(LoraPacketTracker tracker, Time appStopTime)
    logfile.open ("sim_results_0122.csv",std::ios_base::app);
 
 logfile << h << "," << nDevices << "," << radius << "," << tracker.CountMacPacketsGlobally (Seconds (0), appStopTime + Hours (1)) << " ," << overall_attempt << " , " << overall_success << " , " << overall_failed << ", "<< total_energy <<" ," << total_packet<< ", " << double(overall_attempt)/double(total_packet) << "," <<networkLife <<  "," << networkMax << "," << day <<"\n";
+logfile.close();
 }
+
+//prints the nodewise output file
+void printPRR(LoraPacketTracker tracker, Time appStopTime, loraBattery bList[])
+{
+
+/*create the output file*/
+
+   std::ofstream logfile;
+   logfile.open ("prr.csv");
+
+for (int i =0;i<nDevices;i++)
+{
+bList[i].prr += tracker.CountMacPacketsNode(Seconds (0), appStopTime + Hours (1),i);
+//bList[i].prr /= day;
+logfile << bList[i].prr/day << "\n";
+}
+
+logfile.close();
+}
+
+//prints the nodewise output file
+void printtxE(loraBattery bList[])
+{
+
+/*create the output file*/
+
+   std::ofstream logfile;
+   logfile.open ("txE.csv");
+
+for (int i =0;i<nDevices;i++)
+{
+
+//bList[i].prr /= day;
+
+logfile << bList[i].txE << "," << bList[i].P << "\n";
+}
+
+logfile.close();
+}
+
+//prints the nodewise output file
+void printavgR(loraBattery bList[])
+{
+
+/*create the output file*/
+
+   std::ofstream logfile;
+   logfile.open ("avgR.csv");
+
+for (int i =0;i<nDevices;i++)
+{
+
+
+logfile << bList[i].avgR/(bList[i].P*day)  << "\n";
+}
+
+logfile.close();
+}
+
+
+
+
 
 //prints the timeslot variation of the network
 void printTSVariation(loraBattery bList[])
@@ -920,11 +990,11 @@ if(max>0)
 {
 if(h==1){
 bList[i].normAge = bList[i].Age / max;}//(bList[i].Age - min) /(max -min) ;  //bList[i].Age / max;}
-else if(h==2)
+else if(h==3 )
 {
 bList[i].buffer = 1;
 }
-else if(h==3){
+else if(h==2){
 bList[i].normAge = (bList[i].Age - min) /(max -min) ;
 }
 }
@@ -1182,7 +1252,7 @@ void energyNewPkt(loraBattery bList[], Ptr<Packet const> packet, uint32_t id ) {
   total_energy += GetTxEnergy(dr);  
   double curEnergy= GetTxEnergy(dr);
   bList[id].curE += curEnergy;
-  
+  bList[id].txE += curEnergy;
   bList[id].energyUsed +=curEnergy; 
  // if(id ==2) std::cout << " Energy used updated " << bList[id].energyUsed << " Time " << Simulator::Now().GetMinutes() <<"\n" ;
  /* int curMin = int(Simulator::Now().GetMinutes());
@@ -1220,7 +1290,7 @@ void updateSOC(loraBattery* b) {
 // std::cout<< "Energy harvested for node " << b->id << " in Update SOC() for timeslot " << tsIndex << " " << greenEnergy << "\n";
   Ptr<Node> node = NodeList::GetNode(b->id);
   Ptr <ns3::lorawan::PeriodicSender> ps = node->GetApplication(0)->GetObject<ns3::lorawan::PeriodicSender>();
-  double curCap = std::min(b->bCap*theta, b->bCap* (1-b->Age));
+  double curCap = std::min(b->bCap*theta, b->bCap * (1-b->Age));
   b->curSOC = std::min((b->curSOC + greenEnergy - b->curE),curCap ); 
 //  std::cout<< "CurE for node " << b->id <<  " in Update SOC() for timeslot " << tsIndex << " " << b->curE << "\n"; 
 //  std::cout<< "CurSOC for node " << b->id <<  " in Update SOC() for timeslot " << tsIndex << " " << b->curSOC << "\n";
@@ -1286,6 +1356,9 @@ temp["avgLatency"] = bList[i].avgLat;
 temp["maxLatency"] = bList[i].maxLat;
 temp["estE"] = bList[i].estimatedEnergyRequired;
 temp["normAge"] = bList[i].normAge;
+temp["prr"] = bList[i].prr;
+temp["avgR"] = bList[i].avgR;
+temp["txE"] =bList[i].txE;
 //temp["success"] = vec2;
 node_vec.append(temp);
 }
@@ -1314,13 +1387,17 @@ for(Json::Value::ArrayIndex i =0;i!=node_info.size() && i<nDevices ;i++)
 
 Json::Value temp = node_info[i];
 bList[i].curSOC = temp["soc"].asFloat();
-bList[i].curDay = temp["day"].asInt()+1;
+bList[i].curDay = temp["day"].asInt();
 bList[i].avgLat = temp["avgLatency"].asFloat();
 bList[i].maxLat = temp["maxLatency"].asFloat();
 bList[i].estimatedEnergyRequired = temp["estE"].asFloat();
 bList[i].normAge = temp["normAge"].asFloat();
+bList[i].prr += temp["prr"].asFloat();
+bList[i].avgR += temp["avgR"].asFloat();
+bList[i].txE += temp["txE"].asFloat();
 Json::Value vec = temp["selectedSlots"];
 Json::Value vec3 = temp["receptionSlots"];
+
 for(Json::Value::ArrayIndex j =0;j!=vec.size();j++)
 {
 bList[i].SelectedSlots[j] = vec[j].asInt();
@@ -1356,12 +1433,12 @@ infoFile.close();
 void randomSolar(loraBattery bList[])
 
 {
-Ptr<RandomVariableStream> rv_day = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (1), "Max", DoubleValue (30));
+Ptr<RandomVariableStream> rv_day = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (1), "Max", DoubleValue (15));
 Ptr<RandomVariableStream> toss = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (0), "Max", DoubleValue (1));
 for(int i =0;i<nDevices;i++)
 {
 int offset = rv_day->GetInteger();
-bList[i].curDay+= offset;
+bList[i].curDay = day+offset;
 
 }
 }
@@ -1383,8 +1460,8 @@ for (int i =0;i<nDevices;i++)
  sum+= bList[i].latency[k];
  if(bList[i].latency[k]>max) {max = bList[i].latency[k];}
  }
- sum+= bList[i].avgLat*bList[i].latency.size()*bList[i].curDay; //taking into account the previous day's latency
- avg = sum/(bList[i].latency.size()*(bList[i].curDay+1));
+ sum+= bList[i].avgLat*bList[i].latency.size()*day; //taking into account the previous day's latency
+ avg = sum/(bList[i].latency.size()*(day+1));
  bList[i].avgLat = avg;
  if(max>bList[i].maxLat) bList[i].maxLat = max;
  if(bList[i].maxLat>networkMax) networkMax= bList[i].maxLat;
@@ -1590,7 +1667,7 @@ main (int argc, char *argv[])
       Ptr<LoraPhy> edPhy = node->GetDevice(0)->GetObject<LoraNetDevice> ()->GetPhy();
       edPhy->TraceConnectWithoutContext("StartSending", MakeBoundCallback(&energyNewPkt,bList));
       edLorawanMac1->SetMType (LorawanMacHeader::CONFIRMED_DATA_UP);
-      edLorawanMac1->TraceConnectWithoutContext("RequiredTransmissions", MakeBoundCallback(&packetCounter, devID));
+      edLorawanMac1->TraceConnectWithoutContext("RequiredTransmissions", MakeBoundCallback(&packetCounter, devID ,bList));
       edLorawanMac1->TraceConnectWithoutContext("RequiredTransmissions", MakeBoundCallback(&calcLatency, bList));
      //s edLorawanMac1->TraceConnectWithoutContext("SentNewPacket", MakeBoundCallback(&countNewPacket,bList));
      // edPhy->TraceConnectWithoutContext("StartSending", MakeCallback(&logPacket));
@@ -1600,9 +1677,11 @@ main (int argc, char *argv[])
     //  edLorawanMac1->TraceConnectWithoutContext("SentNewPacket", MakeBoundCallback(&getTs,bList));
     //  edLorawanMac1->TraceConnectWithoutContext("Dosend", MakeBoundCallback(&doCad,bList));
      // edLorawanMac1->TraceConnectWithoutContext("CalcBudget", MakeBoundCallback(&checkBudget,bList));
-      edLorawanMac1->TraceConnectWithoutContext("RequiredTransmissions", MakeBoundCallback(&feedback, bList));
+     
     //  edPhy->TraceConnectWithoutContext("SendingPacket", MakeCallback(&logCAD));
+      edLorawanMac1->TraceConnectWithoutContext("RequiredTransmissions", MakeBoundCallback(&feedback, bList));
       }
+      
       
     }
 
@@ -1695,7 +1774,7 @@ main (int argc, char *argv[])
   Time appStopTime = Hours (simulationTime);
   PeriodicSenderHelper appHelper = PeriodicSenderHelper ();
   appHelper.SetPacketSize (30);
-  Ptr<RandomVariableStream> rv = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (8), "Max", DoubleValue (60));
+  Ptr<RandomVariableStream> rv = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (8), "Max", DoubleValue (maxPeriod));
   ApplicationContainer appContainer;
   
  
@@ -1851,7 +1930,9 @@ for(int i=0;i< nDevices;i++)
    printAvgError();
    printAvgLatency(bList);
 
-   
+   printPRR(tracker,appStopTime,bList);
+   printavgR(bList);
+   printtxE(bList);
    writeToJson(bList);
 
    printToFile(tracker, appStopTime);

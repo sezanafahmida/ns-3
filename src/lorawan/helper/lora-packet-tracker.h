@@ -149,6 +149,10 @@ public:
    */
   std::string CountMacPacketsGlobally (Time startTime, Time stopTime);
 
+  /*This returns a string containing the number of sent packets and the number
+    of packets that were received by at least one gateway for a particular nodeId*/
+  double CountMacPacketsNode (Time startTime, Time stopTime, uint32_t nodeId);
+
   /**
    * Count packets to evaluate the global performance at MAC level of the whole
    * network. In this case, a MAC layer packet is labeled as successful if it
