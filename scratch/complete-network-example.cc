@@ -82,6 +82,9 @@ float networkMax=-9999;
 /*helper function to retrieve the time on air*/
 float theta =1;
 int maxPeriod = 60; //maximum period of the network
+int maxNode=1;
+int minNode=54;
+int m=0; //enable or disable max and min degradaded node's in-depth logging
 double GetToA(int dr) {
 
 std::vector <double> ToA={1810.0,987.0,493.0,267.0,154.0,82.0};  //values corresponding to GetToA() function for a packet size 30 bytes(without headers) 
@@ -389,7 +392,62 @@ void initialize()
       
 }
 
+void decideTS2()
+{
+        float Ebat = bCap*theta; //0.008; // Wh**** product of e_required
+	//float Edod = 0.2 * Ebat;// Depth of Discharege
+	float Emax = 1 * Ebat; // Max charge to store in battery
+	float Emin = 0 * Ebat;
+        int p = curP-1;   
+	//normAge=1;
+	
+	int retransNo;
 
+
+	Chargelevel[0] = curSOC;//0.003; // initialCharge();
+        Chargelevel[p*T] = curSOC;
+        
+        w.assign(T, 0.0);
+	gamma.assign(T, 0.0);
+        
+        for (int t = 0; t < T; t++) {
+		retransNo = getRetrans(t)+1;
+                if(retransNo>8) retransNo = 1000; //in this case the packet failed
+		w[t] = (EstHarvestedE[p*T + t] - std::max(EstHarvestedE[p*T + t] , estimatedEnergyRequired * retransNo)) /  GetTxEnergy(0);
+
+                //(*std::max_element(greenSource.begin(),greenSource.end())*(tsLen/60));
+		gamma[t] =  (u[t] +  ( normAge* w[t]));
+               
+	}
+
+       for (int t = 0; t < T; t++) {
+		if (Chargelevel[T * p + t] + EstHarvestedE[p*T + t] - estimatedEnergyRequired * retransNo < Emax) 
+                {
+		 Chargelevel[T * p + t + 1] = Chargelevel[T * p + t] + EstHarvestedE[p*T + t];
+		}
+		else {
+		Chargelevel[T * p + t + 1] = Emax;
+		}
+	}
+
+        std::vector<float> v;
+	for (int t = 0; t < T; t++) {
+		v.push_back(gamma[t]);
+	}
+        std::vector<long unsigned int>temp_vec = sort_indexes(v);
+	for (int i : temp_vec) {
+        retransNo = getRetrans(i)+1;
+        if ((Chargelevel[T * p + i] - (estimatedEnergyRequired * retransNo)) >= Emin) {
+					X[p][i] = 1;
+                                        curSlot = i;
+                                        TSVariation[i]+=1;
+                                        EstRetrans = getRetrans(curSlot)+1;
+                        //if(i==0) std::cout<< "Node " << id << "slot" << curSlot << " Est retrans" << EstRetrans << std::endl;
+			                break;
+                                 }
+           }
+
+}
 
 
 
@@ -694,7 +752,7 @@ void printToFile(LoraPacketTracker tracker, Time appStopTime)
    std::ofstream logfile;
    logfile.open ("sim_results_0122.csv",std::ios_base::app);
 
-logfile << h << "," << nDevices << "," << radius << "," << tracker.CountMacPacketsGlobally (Seconds (0), appStopTime + Hours (1)) << " ," << overall_attempt << " , " << overall_success << " , " << overall_failed << ", "<< total_energy <<" ," << total_packet<< ", " << double(overall_attempt)/double(total_packet) << "," <<networkLife <<  "," << networkMax << "," << day <<"\n";
+logfile << h << "," << nDevices << "," << radius << "," << tracker.CountMacPacketsGlobally (Seconds (0), appStopTime + Hours (1)) << " ," << overall_attempt << " , " << overall_success << " , " << overall_failed << ", "<< total_energy <<" ," << total_packet<< ", " << double(overall_attempt)/double(total_packet) << "," << networkLife <<  "," << networkMax << "," << day <<"\n";
 logfile.close();
 }
 
@@ -709,9 +767,10 @@ void printPRR(LoraPacketTracker tracker, Time appStopTime, loraBattery bList[])
 
 for (int i =0;i<nDevices;i++)
 {
-bList[i].prr += tracker.CountMacPacketsNode(Seconds (0), appStopTime + Hours (1),i);
+std::vector<double>temp = tracker.CountMacPacketsNode(Seconds (0), appStopTime + Hours (1),i);
+bList[i].prr += temp.at(1)/bList[i].curP;
 //bList[i].prr /= day;
-logfile << bList[i].prr/day << "\n";
+logfile <<bList[i].prr/day << "\n";
 }
 
 logfile.close();
@@ -783,7 +842,6 @@ refile.open("receptionSlot.csv");
 
  for(int i=0;i<receptionSlots.size();i++)
 {
-
 refile<< receptionSlots[i] << "\n";
 }
  
@@ -1009,17 +1067,25 @@ std::cout << "Node " << i << " Age " <<  bList[i].Age << " " <<max << " " << bLi
 void normAge_pb(loraBattery bList[])
 {
 
-std::ofstream testfile;
-testfile.open("normage.csv",std::ios_base::app);
+
 
 std::vector <double> temp;
+std::vector <double> temp2;
 for (int i =0;i<nDevices;i++)
 {
 //if(bList[i].Age > max) max = bList[i].Age; 
 temp.push_back(bList[i].Age);
+//if(m)temp2.push_back(bList[i].Age);
 }
+/*if(m)
+{
+maxNode = std::distance(temp2.begin(), std::max_element(temp2.begin(),temp2.end()));
+minNode =std::distance(temp2.begin(),std::min_element(temp2.begin(),temp2.end()));
+}*/
+
 
 std::sort(temp.begin(),temp.end());
+
 
 double min = temp.at(0);
 double max = temp.at(nDevices-1);
@@ -1040,10 +1106,9 @@ bList[i].buffer = (bList[i].Age - min) /(max -min) ;
 }
 else bList[i].buffer = 1;
 std::cout << "Node " << i << " Age " <<  bList[i].Age << " " <<max << " " << bList[i].normAge << " " << bList[i].buffer << "\n";
-
+std::cout<<"MAX " <<maxNode << " MIN "<< minNode << "\n";
 }
-testfile<< bList[24].buffer << "\n";
-testfile.close();
+
 }
 
 
@@ -1153,7 +1218,7 @@ void countNewPacket(loraBattery bList[], Ptr<Packet const> packet){
   Ptr<ns3::lorawan::LorawanMac> edMac = node->GetDevice (0)->GetObject<ns3::lorawan::LoraNetDevice> ()->GetMac ();
   Ptr<ns3::lorawan::EndDeviceLorawanMac> edLorawanMac = edMac->GetObject<ns3::lorawan::EndDeviceLorawanMac> ();
   
-  bList[id].decideTS();
+  bList[id].decideTS2();
 
  // if(id == 2) std::cout << "Calling Decide TS for period " << bList[id].curP  << " slot " << bList[id].curSlot<< std::endl;
   edLorawanMac->ts = Minutes(bList[id].curSlot * (tsLen/60));
@@ -1254,7 +1319,7 @@ void energyNewPkt(loraBattery bList[], Ptr<Packet const> packet, uint32_t id ) {
   bList[id].curE += curEnergy;
   bList[id].txE += curEnergy;
   bList[id].energyUsed +=curEnergy; 
- // if(id ==2) std::cout << " Energy used updated " << bList[id].energyUsed << " Time " << Simulator::Now().GetMinutes() <<"\n" ;
+  if(id ==1) std::cout << " Energy used updated " << bList[id].curE << " Time " << Simulator::Now().GetMinutes() <<"\n" ;
  /* int curMin = int(Simulator::Now().GetMinutes());
  // std::cout<<curMin<<std::endl;
   double greenEnergy =0;
@@ -1267,7 +1332,19 @@ void energyNewPkt(loraBattery bList[], Ptr<Packet const> packet, uint32_t id ) {
   bList[id].lastUpdate=curMin;*/
 }
 
+void writeDetail(loraBattery *b,int tsIndex, double greenEnergy)
 
+{
+
+std::stringstream ss;
+ss<<"node"<< b->id;
+
+std::ofstream outfile;
+outfile.open(ss.str(),std::ios_base::app);
+outfile<< tsIndex << "," << greenEnergy << "," << b->curE << "," << b->normAge << "\n"; 
+
+outfile.close();
+}
 
 //updates the SOC trace at regular intervals
 void updateSOC(loraBattery* b) {
@@ -1285,6 +1362,7 @@ void updateSOC(loraBattery* b) {
    
   
   } */
+  
   double greenEnergy = b->EstHarvestedE[tsIndex];
  // std::cout<< greenEnergy/3000 <<std::endl;
 // std::cout<< "Energy harvested for node " << b->id << " in Update SOC() for timeslot " << tsIndex << " " << greenEnergy << "\n";
@@ -1292,6 +1370,7 @@ void updateSOC(loraBattery* b) {
   Ptr <ns3::lorawan::PeriodicSender> ps = node->GetApplication(0)->GetObject<ns3::lorawan::PeriodicSender>();
   double curCap = std::min(b->bCap*theta, b->bCap * (1-b->Age));
   b->curSOC = std::min((b->curSOC + greenEnergy - b->curE),curCap ); 
+  //if((b->id==minNode)|| (b->id==maxNode)) writeDetail(b,curMin,greenEnergy);
 //  std::cout<< "CurE for node " << b->id <<  " in Update SOC() for timeslot " << tsIndex << " " << b->curE << "\n"; 
 //  std::cout<< "CurSOC for node " << b->id <<  " in Update SOC() for timeslot " << tsIndex << " " << b->curSOC << "\n";
   if(b->curSOC <=0) 
@@ -1434,14 +1513,31 @@ void randomSolar(loraBattery bList[])
 
 {
 Ptr<RandomVariableStream> rv_day = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (1), "Max", DoubleValue (15));
-Ptr<RandomVariableStream> toss = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (0), "Max", DoubleValue (1));
 for(int i =0;i<nDevices;i++)
 {
+
 int offset = rv_day->GetInteger();
 bList[i].curDay = day+offset;
 
 }
 }
+
+void randomSolar_m(loraBattery bList[])  //modified for max min D logging
+{
+Ptr<RandomVariableStream> rv_day = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (1), "Max", DoubleValue (15));
+for(int i =0;i<nDevices;i++)
+{
+///if ((i!= maxNode) && (i!=minNode))
+//{
+int offset = rv_day->GetInteger();
+bList[i].curDay = day+offset;
+//}
+//else bList[i].curDay = day;
+}
+}
+
+
+
 
 void printAvgLatency(loraBattery bList[])
 {
@@ -1508,6 +1604,7 @@ main (int argc, char *argv[])
    cmd.AddValue ("day", "day of the simulation", day);
   cmd.AddValue("theta","SOC cap", theta);
   cmd.AddValue("b","b",b);
+  cmd.AddValue("m","m",m);
   cmd.Parse (argc, argv);
 
   // Set up logging
@@ -1780,16 +1877,21 @@ main (int argc, char *argv[])
  
   for (NodeContainer::Iterator j = endDevices.Begin (); j != endDevices.End (); ++j)
     { 
+
+      Ptr <Node> node = (*j);
+      int id = node->GetId();
       /*provide random period to applications*/
+      
       int randomValue = rv->GetInteger()*2; 
+     // if((m==1) && (id==maxNode) ) randomValue=30;
+     // if((m==1) && (id ==minNode)) randomValue=30;
       Time random_time = Minutes(randomValue);
       appHelper.SetPeriod(random_time);
       appHelper.initDelayValue= 0; //chosenTs*tsLen;
       appContainer.Add(appHelper.Install(*j)); //attach application to nodes 
 
       /*initialize the bList array*/
-      Ptr <Node> node = (*j);
-      int id = node->GetId();
+      
       bList[id].s = randomValue;
       bList[id].P = std::ceil((appStopTime.GetMinutes()/bList[id].s));
       bList[id].bCap = bList[id].P * GetTxEnergy(0)*2;
@@ -1804,11 +1906,13 @@ main (int argc, char *argv[])
     }
    //  getSOC(bList);           //update the state of charge from file 
      readFromJson(bList);
-     randomSolar(bList);
+     //if(m==0)
+      randomSolar(bList);
+     //else randomSolar_m(bList);
     
     for (int i=0;i<nDevices;i++)
    {
-    std::cout << "Node " << i << " sampling period " << bList[i].s << " battery capacity "  << "P" << bList[i].P << " "<< bList[i].bCap << " SOC " <<  bList[i].curSOC <<std::endl;
+    std::cout << "Node " << i << " sampling period " << bList[i].s << " battery capacity "  << " P " << bList[i].P << " "<< " T" << bList[i].T << " "<< bList[i].bCap << " SOC " <<  bList[i].curSOC <<std::endl;
     for (int t=0;t< bList[i].T ;t++)
     {
      bList[i].ProbabilityUpdate(t);
