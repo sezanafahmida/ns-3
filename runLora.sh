@@ -4,6 +4,7 @@ l_min=$((l/60))
 initD=0
 h=0
 theta=0.5
+simDay=365
 rm /home/gp7532/ns-3/SOC.csv
 rm /home/gp7532/ns-3/day.csv
 rm /home/gp7532/ns-3/Mean/mean*
@@ -11,7 +12,7 @@ rm /home/gp7532/ns-3/Trace/trace*
 rm /home/gp7532/ns-3/Prob/prob*
 rm /home/gp7532/ns-3/node_info.json
 
-for day in {1..7300..1}
+for ((day=1;day<=$simDay;day++))
   do
   echo "$node_num, $day, $h"
  ./waf --run "complete-network-example --nDevices=$node_num --l=$l --h=$h --day=$day --theta=$theta" >sim_run.txt

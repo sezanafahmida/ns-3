@@ -5,6 +5,7 @@ theta=0.5
 h=1
 initD=0
 m=1;
+simDay=3
 #for theta in {0.05,0.5,1} #$(seq 0.05 0.45 0.5)
 #do
 #for node_num in {100,250,500}
@@ -19,8 +20,8 @@ rm /home/gp7532/ns-3/AvgError.csv
 #rm /home/gp7532/ns-3/Lifespan_heuristic/*.csv
 
 #for h in {1}
-#do
-for day in {1..1..1}
+#do((day=1;day<=$simDay;day++))
+for ((day=1;day<=$simDay;day++))
   do
 
   echo "$node_num, $day , $theta ,$h"
