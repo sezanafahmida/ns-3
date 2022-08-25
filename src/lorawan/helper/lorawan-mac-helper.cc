@@ -286,10 +286,9 @@ LorawanMacHelper::ConfigureForEuRegion (Ptr<GatewayLorawanMac> gwMac) const
       gwPhy->ResetReceptionPaths ();
 
       std::vector<double> frequencies;
-      frequencies.push_back (868.1);
+      /*frequencies.push_back (868.1);
       frequencies.push_back (868.3);
-      frequencies.push_back (868.5);
-
+      frequencies.push_back (868.5);*/
       for (auto &f : frequencies)
         {
           gwPhy->AddFrequency (f);
@@ -315,9 +314,15 @@ LorawanMacHelper::ApplyCommonEuConfigurations (Ptr<LorawanMac> lorawanMac) const
   //////////////
 
   LogicalLoraChannelHelper channelHelper;
-  channelHelper.AddSubBand (868, 868.6, 0.01, 14);
-  channelHelper.AddSubBand (868.7, 869.2, 0.001, 14);
-  channelHelper.AddSubBand (869.4, 869.65, 0.1, 27);
+//  channelHelper.AddSubBand (868, 868.6, 0.01, 14);
+//  channelHelper.AddSubBand (868.7, 869.2, 0.001, 14);
+//  channelHelper.AddSubBand (869.4, 869.65, 0.1, 27);
+
+   /*without duty cycle emulating US band*/
+  channelHelper.AddSubBand (868, 868.6, 1, 14);
+  channelHelper.AddSubBand (868.7, 869.2, 1, 14);
+  channelHelper.AddSubBand (869.4, 869.65, 1, 27);
+
 
   //////////////////////
   // Default channels //
@@ -325,9 +330,21 @@ LorawanMacHelper::ApplyCommonEuConfigurations (Ptr<LorawanMac> lorawanMac) const
   Ptr<LogicalLoraChannel> lc1 = CreateObject<LogicalLoraChannel> (868.1, 0, 5);
   Ptr<LogicalLoraChannel> lc2 = CreateObject<LogicalLoraChannel> (868.3, 0, 5);
   Ptr<LogicalLoraChannel> lc3 = CreateObject<LogicalLoraChannel> (868.5, 0, 5);
+  Ptr<LogicalLoraChannel> lc4 = CreateObject<LogicalLoraChannel> (868.8, 0, 5);
+  Ptr<LogicalLoraChannel> lc5 = CreateObject<LogicalLoraChannel> (868.9, 0, 5);
+  Ptr<LogicalLoraChannel> lc6 = CreateObject<LogicalLoraChannel> (869.5, 0, 5);
+  Ptr<LogicalLoraChannel> lc7 = CreateObject<LogicalLoraChannel> (869.6, 0, 5);
+  Ptr<LogicalLoraChannel> lc8 = CreateObject<LogicalLoraChannel> (869.55, 0, 5);
+
   channelHelper.AddChannel (lc1);
   channelHelper.AddChannel (lc2);
   channelHelper.AddChannel (lc3);
+  channelHelper.AddChannel (lc4);
+  channelHelper.AddChannel (lc5);
+  channelHelper.AddChannel (lc6);
+  channelHelper.AddChannel (lc7);
+  channelHelper.AddChannel (lc8);
+
 
   lorawanMac->SetLogicalLoraChannelHelper (channelHelper);
 
@@ -516,23 +533,23 @@ LorawanMacHelper::SetSpreadingFactorsUp (NodeContainer endDevices, NodeContainer
         }
       else if (rxPower > *(edSensitivity + 3))
         {
-          mac->SetDataRate (2);
+          mac->SetDataRate (2);                      //for US datarate refrain from datarate1,0
           sfQuantity[3] = sfQuantity[3] + 1;
         }
       else if (rxPower > *(edSensitivity + 4))
         {
-          mac->SetDataRate (1);
+          mac->SetDataRate (2);
           sfQuantity[4] = sfQuantity[4] + 1;
         }
       else if (rxPower > *(edSensitivity + 5))
         {
-          mac->SetDataRate (0);
+          mac->SetDataRate (2);
           sfQuantity[5] = sfQuantity[5] + 1;
         }
       else // Device is out of range. Assign SF12.
         {
           // NS_LOG_DEBUG ("Device out of range");
-          mac->SetDataRate (0);
+          mac->SetDataRate (2);
           sfQuantity[6] = sfQuantity[6] + 1;
           // NS_LOG_DEBUG ("sfQuantity[6] = " << sfQuantity[6]);
         }

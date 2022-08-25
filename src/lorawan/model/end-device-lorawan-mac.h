@@ -40,6 +40,9 @@ namespace lorawan {
 class EndDeviceLorawanMac : public LorawanMac
 {
 public:
+  Time ts = Seconds(0); //timeslot + a random backoff emulating cad
+  bool h =false;        //indicating heuristic for battery longevity
+  Time cadBo = Seconds(0); //cad backoff
   static TypeId GetTypeId (void);
 
   EndDeviceLorawanMac ();
@@ -331,6 +334,13 @@ public:
    */
   void AddMacCommand (Ptr<MacCommand> macCommand);
 
+   Ptr<LogicalLoraChannel> ucp; //added for RT LORA
+   bool RT=false;   
+   double delay_value;
+  // bool isLading =false; //enable or disable lading
+  // void SendOFFloadingPacket(Ptr <Packet const> packet); //helper for forwarding offloaded packet
+ //  void SendAck(Ptr <Packet const>packetAck, int window, Ptr <const Packet> offPacket); //helper to acknowledge offloading node.
+ //  int comCh= 0; //common channel id for offloading communication
 protected:
   /**
    * Structure representing the parameters that will be used in the
@@ -430,7 +440,14 @@ protected:
    * \see class CallBackTraceSource
    */
   TracedCallback<uint8_t, bool, Time, Ptr<Packet> > m_requiredTxCallback;
-
+  
+  /**
+   * The event of retransmitting a packet in a consecutive moment if an ACK is not received.
+   *
+   * This Event is used to cancel the retransmission if the ACK is found in ParseCommand function and
+   * if a newer packet is delivered from the application to be sent.
+   */
+  EventId m_nextTx;
 private:
   /**
    * Randomly shuffle a Ptr<LogicalLoraChannel> vector.
@@ -449,13 +466,6 @@ private:
    */
   bool m_controlDataRate;
 
-  /**
-   * The event of retransmitting a packet in a consecutive moment if an ACK is not received.
-   *
-   * This Event is used to cancel the retransmission if the ACK is found in ParseCommand function and
-   * if a newer packet is delivered from the application to be sent.
-   */
-  EventId m_nextTx;
 
   /**
    * The event of transmitting a packet in a consecutive moment, when the duty cycle let us transmit.
@@ -492,6 +502,9 @@ private:
   LorawanMacHeader::MType m_mType;
 
   uint8_t m_currentFCnt;
+  
+ 
+ 
 };
 
 

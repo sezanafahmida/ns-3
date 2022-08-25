@@ -168,7 +168,7 @@ GatewayLoraPhy::AddFrequency (double frequencyMHz)
   NS_LOG_FUNCTION (this << frequencyMHz);
 
   m_frequencies.push_back (frequencyMHz);
-
+//  std::cout << "debug " << m_frequencies.size() << " \n";
   NS_ASSERT (m_frequencies.size () <= 8);
 }
 

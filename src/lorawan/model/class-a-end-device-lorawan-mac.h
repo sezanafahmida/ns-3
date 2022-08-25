@@ -40,6 +40,7 @@ namespace lorawan {
 class ClassAEndDeviceLorawanMac : public EndDeviceLorawanMac
 {
 public:
+  bool haveBudget = true; //variable indicating whether we are in budget or nt
   static TypeId GetTypeId (void);
 
   ClassAEndDeviceLorawanMac ();
@@ -98,6 +99,10 @@ public:
    * Perform operations needed to close the second receive window.
    */
   void CloseSecondReceiveWindow (void);
+  
+  
+  void helper(Ptr<Packet> packet, LoraTxParameters params,
+                              double frequencyMHz, double txPowerDbm,Ptr<LogicalLoraChannel> txChannel);
 
   /////////////////////////
   // Getters and Setters //

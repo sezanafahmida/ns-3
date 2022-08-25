@@ -140,7 +140,7 @@ int main (int argc, char *argv[])
   // oneShotSenderHelper.Install (endDevices);
 
   PeriodicSenderHelper periodicSenderHelper;
-  periodicSenderHelper.SetPeriod (Seconds (5));
+  periodicSenderHelper.SetPeriod (Seconds (500));
 
   periodicSenderHelper.Install (endDevices);
 

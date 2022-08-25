@@ -79,6 +79,10 @@ public:
    */
   void StopApplication (void);
 
+  TracedCallback<Ptr<Packet const> > m_packetGenerated;
+  
+  bool alive=true; /*if battery is alive*/
+
 private:
   /**
    * The interval between to consecutive send events
@@ -110,7 +114,8 @@ private:
    * The random variable that adds bytes to the packet size
    */
   Ptr<RandomVariableStream> m_pktSizeRV;
-
+  
+  
 
 };
 

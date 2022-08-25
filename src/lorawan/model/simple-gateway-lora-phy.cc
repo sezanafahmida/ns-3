@@ -119,7 +119,7 @@ SimpleGatewayLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm, uint8
                                     Time duration, double frequencyMHz)
 {
   NS_LOG_FUNCTION (this << packet << rxPowerDbm << duration << frequencyMHz);
-
+  
   // Fire the trace source
   m_phyRxBeginTrace (packet);
 
@@ -186,7 +186,7 @@ SimpleGatewayLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm, uint8
             {
               NS_LOG_INFO ("Scheduling reception of a packet, "
                            << "occupying one demodulator");
-
+             //std::cout<< "AT gateway " << frequencyMHz<< "\n"; 
               // Block this resource
               currentPath->LockOnEvent (event);
               m_occupiedReceptionPaths++;

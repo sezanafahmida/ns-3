@@ -103,10 +103,12 @@ SimpleEndDeviceLoraPhy::Send (Ptr<Packet> packet, LoraTxParameters txParams,
   if (m_device)
     {
       m_startSending (packet, m_device->GetNode ()->GetId ());
+      m_sendPacket(packet,m_device->GetNode ()->GetId (),txParams.sf, frequencyMHz, txPowerDbm);
     }
   else
     {
       m_startSending (packet, 0);
+      m_sendPacket(packet,0,txParams.sf, frequencyMHz, txPowerDbm);
     }
 }
 

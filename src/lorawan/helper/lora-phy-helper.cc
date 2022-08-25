@@ -92,10 +92,15 @@ LoraPhyHelper::Create (Ptr<Node> node, Ptr<NetDevice> device) const
       // We expect that MacHelper instances will overwrite this setting if the
       // device will operate in a different region
       std::vector<double> frequencies;
-      frequencies.push_back (868.1);
+        frequencies.push_back (868.1);
       frequencies.push_back (868.3);
       frequencies.push_back (868.5);
-
+      frequencies.push_back (868.8);
+      frequencies.push_back (868.9);
+      frequencies.push_back (869.5);
+      frequencies.push_back (869.6);
+      frequencies.push_back (869.55);
+     // std::cout << "DEBUG \n";
       for (auto &f : frequencies)
         {
           phy->GetObject<SimpleGatewayLoraPhy> ()->AddFrequency (f);

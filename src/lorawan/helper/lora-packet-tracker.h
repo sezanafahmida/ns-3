@@ -151,7 +151,7 @@ public:
 
   /*This returns a string containing the number of sent packets and the number
     of packets that were received by at least one gateway for a particular nodeId*/
-  double CountMacPacketsNode (Time startTime, Time stopTime, uint32_t nodeId);
+  std::vector<double> CountMacPacketsNode (Time startTime, Time stopTime, uint32_t nodeId);
 
   /**
    * Count packets to evaluate the global performance at MAC level of the whole

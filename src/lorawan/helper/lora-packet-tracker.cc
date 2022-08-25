@@ -374,13 +374,15 @@ LoraPacketTracker::PrintPhyPacketsPerGw (Time startTime, Time stopTime,
       std::to_string (received) + ","+ std::to_string(double(received)/double(sent));
   }
 
-  double
+  std::vector <double>
   LoraPacketTracker::CountMacPacketsNode (Time startTime, Time stopTime, uint32_t nodeId)
   {
     NS_LOG_FUNCTION (this << startTime << stopTime);
 
     double sent = 0;
     double received = 0;
+
+    std::vector<double> temp;
     for (auto it = m_macPacketTracker.begin ();
          it != m_macPacketTracker.end ();
          ++it)
@@ -395,8 +397,9 @@ LoraPacketTracker::PrintPhyPacketsPerGw (Time startTime, Time stopTime,
               }
           }
       }
-
-    return (double(received)/double(sent));
+    temp.push_back(double(sent));
+    temp.push_back(double(received));
+    return temp;
   }
 
   std::string

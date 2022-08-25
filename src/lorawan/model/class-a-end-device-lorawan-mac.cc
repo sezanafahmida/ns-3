@@ -100,12 +100,34 @@ ClassAEndDeviceLorawanMac::SendToPhy (Ptr<Packet> packetToSend)
   params.crcEnabled = 1;
   params.lowDataRateOptimizationEnabled = 0;
 
-  // Wake up PHY layer and directly send the packet
+  // Wake up PHY layer and directly send the packet , Changed for RT LoRa
+  
 
-  Ptr<LogicalLoraChannel> txChannel = GetChannelForTx ();
+ // if(RT) { txChannel =  ucp; }
+ // else   txChannel =  GetChannelForTx ();
 
+
+ /* if(RT)
+  {
+  NS_LOG_DEBUG ("PacketToSend: " << packetToSend << " Channel Freq " << txChannel->GetFrequency() << " delay " << delay_value);
+  Time TxDelay = Seconds (delay_value);
+          
+  NS_LOG_DEBUG("Scheduling delay for packet " <<packetToSend << " " << delay_value);
+  Simulator::Cancel (m_nextTx);  /*cancel the previously scheduled tx , if any and schedule the new delayed tx , otherwise causing race conditions         
+  m_nextTx= Simulator::Schedule (TxDelay, &ClassAEndDeviceLorawanMac::helper , this, packetToSend, params, txChannel->GetFrequency(), m_txPower,txChannel);
+  
+  }
+  else*/
+  if(txChannel)
+  {
   NS_LOG_DEBUG ("PacketToSend: " << packetToSend);
-  m_phy->Send (packetToSend, params, txChannel->GetFrequency (), m_txPower);
+  m_phy->Send (packetToSend, params, txChannel->GetFrequency (), m_txPower); 
+  
+  }
+  else 
+ {
+  std::cout << "Channel not set" << std::endl;
+ }
 
   //////////////////////////////////////////////
   // Register packet transmission for duty cycle
@@ -136,6 +158,17 @@ ClassAEndDeviceLorawanMac::SendToPhy (Ptr<Packet> packetToSend)
 
 }
 
+
+void
+ClassAEndDeviceLorawanMac::helper(Ptr<Packet> packet, LoraTxParameters params,
+                              double frequencyMHz, double txPowerDbm, Ptr<LogicalLoraChannel> txChannel)
+{
+
+ // std::cout << "Sending from the helper function from node " << Simulator::GetContext() << " at " << Simulator::Now().GetSeconds() << "\n"; 
+  m_phy->Send (packet, params, txChannel->GetFrequency (), m_txPower);
+  
+
+}
 //////////////////////////
 //  Receiving methods   //
 //////////////////////////
@@ -178,7 +211,7 @@ ClassAEndDeviceLorawanMac::Receive (Ptr<Packet const> packet)
 
 
           // Parse the MAC commands
-          ParseCommands (fHdr);
+          ParseCommands (fHdr);  //this will call requiredTx trace and feedback will be called, nothing to do
 
           // TODO Pass the packet up to the NetDevice
 
@@ -188,7 +221,8 @@ ClassAEndDeviceLorawanMac::Receive (Ptr<Packet const> packet)
         }
       else
         {
-          NS_LOG_DEBUG ("The message is intended for another recipient.");
+          NS_LOG_DEBUG ("The message is intended for another recipient.");  
+          m_budget(packet); //trigger budget calculation, get result in haveBudget variable
 
           // In this case, we are either receiving in the first receive window
           // and finishing reception inside the second one, or receiving a
@@ -208,8 +242,9 @@ ClassAEndDeviceLorawanMac::Receive (Ptr<Packet const> packet)
                 }
               else       // Reschedule
                 {
+                  if(haveBudget) {
                   this->Send (m_retxParams.packet);
-                  NS_LOG_INFO ("We have " << unsigned(m_retxParams.retxLeft) << " retransmissions left: rescheduling transmission.");
+                  NS_LOG_INFO ("We have " << unsigned(m_retxParams.retxLeft) << " retransmissions left: rescheduling transmission.");}
                 }
             }
         }
@@ -218,9 +253,11 @@ ClassAEndDeviceLorawanMac::Receive (Ptr<Packet const> packet)
     {
       NS_LOG_INFO ("The packet we are receiving is in uplink.");
       if (m_retxParams.retxLeft > 0)
-        {
-          this->Send (m_retxParams.packet);
-          NS_LOG_INFO ("We have " << unsigned(m_retxParams.retxLeft) << " retransmissions left: rescheduling transmission.");
+        { if(haveBudget) 
+           {
+            this->Send (m_retxParams.packet);
+            NS_LOG_INFO ("We have " << unsigned(m_retxParams.retxLeft) << " retransmissions left: rescheduling transmission.");
+           }
         }
       else
         {
@@ -232,6 +269,7 @@ ClassAEndDeviceLorawanMac::Receive (Ptr<Packet const> packet)
           resetRetransmissionParameters ();
         }
     }
+  
 
   m_phy->GetObject<EndDeviceLoraPhy> ()->SwitchToSleep ();
 }
@@ -269,13 +307,10 @@ ClassAEndDeviceLorawanMac::TxFinished (Ptr<const Packet> packet)
   NS_LOG_FUNCTION_NOARGS ();
 
   // Schedule the opening of the first receive window
-  Simulator::Schedule (m_receiveDelay1,
-                       &ClassAEndDeviceLorawanMac::OpenFirstReceiveWindow, this);
+  Simulator::Schedule (m_receiveDelay1, &ClassAEndDeviceLorawanMac::OpenFirstReceiveWindow, this);
 
   // Schedule the opening of the second receive window
-  m_secondReceiveWindow = Simulator::Schedule (m_receiveDelay2,
-                                               &ClassAEndDeviceLorawanMac::OpenSecondReceiveWindow,
-                                               this);
+  m_secondReceiveWindow = Simulator::Schedule (m_receiveDelay2,      &ClassAEndDeviceLorawanMac::OpenSecondReceiveWindow, this);
   // // Schedule the opening of the first receive window
   // Simulator::Schedule (m_receiveDelay1,
   //                      &ClassAEndDeviceLorawanMac::OpenFirstReceiveWindow, this);

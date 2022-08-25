@@ -65,6 +65,7 @@ public:
 
   void SetPacketSize (uint8_t size);
 
+  int initDelayValue; 
 
 private:
   Ptr<Application> InstallPriv (Ptr<Node> node) const;

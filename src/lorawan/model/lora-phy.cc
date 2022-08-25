@@ -41,6 +41,11 @@ LoraPhy::GetTypeId (void)
                      "has begun the sending process for a packet",
                      MakeTraceSourceAccessor (&LoraPhy::m_startSending),
                      "ns3::Packet::TracedCallback")
+    .AddTraceSource ("SendingPacket",
+                     "Trace source indicating the PHY layer"
+                     "has begun the sending process for a packet (includes SF and channel info)",
+                     MakeTraceSourceAccessor (&LoraPhy::m_sendPacket),
+                     "ns3::Packet::TracedCallback")
     .AddTraceSource ("PhyRxBegin",
                      "Trace source indicating a packet "
                      "is now being received from the channel medium "
@@ -192,7 +197,7 @@ LoraPhy::GetOnAirTime (Ptr<Packet> packet, LoraTxParameters txParams)
   double tPayload = payloadSymbNb * tSym;
 
   NS_LOG_DEBUG ("Time computation: num = " << num << ", den = " << den <<
-                ", payloadSymbNb = " << payloadSymbNb << ", tSym = " << tSym);
+                ", payloadSymbNb = " << payloadSymbNb << ", tSym = " << tSym << " sf " << int(txParams.sf));
   NS_LOG_DEBUG ("tPreamble = " << tPreamble);
   NS_LOG_DEBUG ("tPayload = " << tPayload);
   NS_LOG_DEBUG ("Total time = " << tPreamble + tPayload);

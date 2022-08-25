@@ -150,6 +150,8 @@ EndDeviceLorawanMac::~EndDeviceLorawanMac ()
 void
 EndDeviceLorawanMac::Send (Ptr<Packet> packet)
 {
+  
+ 
   NS_LOG_FUNCTION (this << packet);
 
   // Check that payload length is below the allowed maximum
@@ -162,17 +164,22 @@ EndDeviceLorawanMac::Send (Ptr<Packet> packet)
     }
 
   // If it is not possible to transmit now because of the duty cycle,
-  // or because we are receiving, schedule a tx/retx later
-
-  Time netxTxDelay = GetNextTransmissionDelay ();
+  // or because we are receiving, schedule a tx/retx later 
+ // insert a random backoff here/
+       
+  Time netxTxDelay = std::max(ts,GetNextTransmissionDelay ());  //maximum of dutycycle delay and timeslot given by upper layer.s
   if (netxTxDelay != Seconds (0))
     {
       postponeTransmission (netxTxDelay, packet);
+     // std::cout << "postponing Transmission for node " << Simulator::GetContext() << "\n";
       return;
     }
-
-  // Pick a channel on which to transmit the packet
-  Ptr<LogicalLoraChannel> txChannel = GetChannelForTx ();
+   Ptr<LogicalLoraChannel> txChannel;
+   //std::cout << "debug: EDMAC RT " << RT << "\n"  ;
+  // Pick a channel on which to transmit the packet, Changed for RT LORA
+  if(RT)  { txChannel =  ucp;  }
+  else  txChannel =  GetChannelForTx ();
+   
 
   if (!(txChannel && m_retxParams.retxLeft > 0))
     {
@@ -192,6 +199,8 @@ EndDeviceLorawanMac::Send (Ptr<Packet> packet)
       NS_ASSERT_MSG (m_txPower <= m_channelHelper.GetTxPowerForChannel (txChannel),
                      " The selected power is too hight to be supported by this channel.");
       DoSend (packet);
+     
+
     }
 }
 
@@ -210,10 +219,33 @@ EndDeviceLorawanMac::postponeTransmission (Time netxTxDelay, Ptr<Packet> packet)
 void
 EndDeviceLorawanMac::DoSend (Ptr<Packet> packet)
 {
+   
+  txChannel =  GetChannelForTx ();
+  uint8_t sf = GetSfFromDataRate (m_dataRate);
+  
+  if(h)
+  {
+   m_doSend(packet, txChannel->GetFrequency(), sf);
+   if (cadBo != Seconds (0))
+    {
+      postponeTransmission (cadBo, packet);
+     // std::cout << "postponing Transmission for node " << Simulator::GetContext() << "\n";
+      return;
+    }
+  }
+
+  
   NS_LOG_FUNCTION (this);
   // Checking if this is the transmission of a new packet
   if (packet != m_retxParams.packet)
     {
+
+      if(ts!= Seconds(0)) {
+
+       //postponeTransmission(ts,packet); 
+       //if(Simulator::GetContext()==2) std::cout<< " Postponing transmission " << ts.GetMinutes() << "Minutes" << std::endl;
+       ts=Seconds(0);
+      }
       NS_LOG_DEBUG ("Received a new packet from application. Resetting retransmission parameters.");
       m_currentFCnt++;
       NS_LOG_DEBUG ("APP packet: " << packet << ".");
@@ -233,7 +265,7 @@ EndDeviceLorawanMac::DoSend (Ptr<Packet> packet)
 
       // Reset MAC command list
       m_macCommandList.clear ();
-
+      
       if (m_retxParams.waitingAck)
         {
           // Call the callback to notify about the failure
@@ -278,10 +310,10 @@ EndDeviceLorawanMac::DoSend (Ptr<Packet> packet)
     }
   // this is a retransmission
   else
-    {
+    { 
       if (m_retxParams.waitingAck)
         {
-
+           
           m_currentFCnt++;
 
           // Remove the headers
@@ -560,9 +592,14 @@ EndDeviceLorawanMac::GetChannelForTx (void)
   // Pick a random channel to transmit on
   std::vector<Ptr<LogicalLoraChannel> > logicalChannels;
   logicalChannels = m_channelHelper.GetEnabledChannelList ();                 // Use a separate list to do the shuffle
-  logicalChannels = Shuffle (logicalChannels);
-
+  int size = logicalChannels.size ();
+  int random = std::floor (m_uniformRV->GetValue (0, size));
+ // std::cout << "number of channels " << size << " using channel " <<  random << "\n";
+  return logicalChannels.at(random);
+ // logicalChannels = Shuffle (logicalChannels);
+  
   // Try every channel
+/*
   std::vector<Ptr<LogicalLoraChannel> >::iterator it;
   for (it = logicalChannels.begin (); it != logicalChannels.end (); ++it)
     {
@@ -588,7 +625,7 @@ EndDeviceLorawanMac::GetChannelForTx (void)
           NS_LOG_DEBUG ("Packet cannot be immediately transmitted on " <<
                         "the current channel because of duty cycle limitations.");
         }
-    }
+    }*/
   return 0;                 // In this case, no suitable channel was found
 }
 

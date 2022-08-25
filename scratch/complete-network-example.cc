@@ -154,9 +154,9 @@ int curDay=1;
 double budget =0;
 double curE = 0; //energy consumed by transmission (including retransmission attempts) accessed by updateSOC() periodically
 double energyTS =0; // energy consumed by transmission (including retransmission attempts) accessed by decideTS() only after a packet has been generated
-int s =0; //sampling period
+float s =0; //sampling period
 int curSlot =0;
-int curP = 0;  //nodes current sampling period
+int curP = 0;  //nodes current sampling period number
 double lifeSpan =1; //battery lifeSpan
 double normAge=1; //normalized age
 /*variables from akshar*/ 
@@ -192,6 +192,10 @@ float buffer = 1; //used to emulate piggyback, holds the latest age until ack is
 double prr = 0; //prr of node
 double avgR = 0;///average retx attempts per node
 double txE = 0; //tx energy consumption of node
+double utilSum =0;//total gained utility
+int success=0; //total successful acks
+float avgErr =0; //average error
+double totG =0; //total green energy generated
 
 /********************************UPPER LAYER ******************/ 
 
@@ -362,6 +366,7 @@ void initialize()
         }
 	std::string value;
 	int day1 = curDay% 365;
+        
 	int Cmin = day1 * 1440;
         
 	for (int i = 0; i < P*T; i++)
@@ -371,6 +376,7 @@ void initialize()
 		{	
 			greenEnergy+= greenSource.at(Cmin%gsLen); //GetTxEnergy(0) * 3	
 			Cmin++;  
+                       // if(id<2) std::cout<< "Energy harvested for min " << day1 << " " << Cmin << " " << greenEnergy << "\n";
 		}
 		EstHarvestedE[i] = greenEnergy;
               //  std::cout<< "Energy harvested in Decide TS() for timeslot " << i << " " << EstHarvestedE[i] << "\n";
@@ -421,7 +427,7 @@ void decideTS2()
 	}
 
        for (int t = 0; t < T; t++) {
-		if (Chargelevel[T * p + t] + EstHarvestedE[p*T + t] - estimatedEnergyRequired * retransNo < Emax) 
+		if (Chargelevel[T * p + t] + EstHarvestedE[p*T + t] < Emax) 
                 {
 		 Chargelevel[T * p + t + 1] = Chargelevel[T * p + t] + EstHarvestedE[p*T + t];
 		}
@@ -698,12 +704,27 @@ bool IsUplink(Ptr<Packet const> packet)
 
 void calcLatency(loraBattery bList[],uint8_t reqTx, bool success, Time firstAttempt, Ptr<Packet> packet)
 {
-
 uint32_t id = Simulator::GetContext();
-float lat = (Simulator::Now().GetSeconds() - bList[id].lastGeneratedPkt.GetSeconds());
+float lat=0;
+int index=0;
+
+if(success)
+{
+lat = (Simulator::Now().GetSeconds() - bList[id].lastGeneratedPkt.GetSeconds());
+bList[id].success+=1;
+index = (lat/tsLen);
+//std::cout<< "Debugging latency " << " node " << id << " index " << index << " lat " << lat << " " << bList[id].u[index]   << std::endl;
 bList[id].latency.push_back(lat);
-int index = (lat/tsLen);
 receptionSlots[index]+=1;
+if(index<bList[id].T) bList[id].utilSum+= bList[id].u[index];
+}
+/*else
+{
+//float period = bList[id].s;
+//std::cout<< "Debugging latency " << " node " << id << " " << 60*period << std::endl;
+lat = period*60;
+}*/
+
 
 }
 
@@ -768,11 +789,29 @@ void printPRR(LoraPacketTracker tracker, Time appStopTime, loraBattery bList[])
 for (int i =0;i<nDevices;i++)
 {
 std::vector<double>temp = tracker.CountMacPacketsNode(Seconds (0), appStopTime + Hours (1),i);
-bList[i].prr += temp.at(1)/bList[i].curP;
+bList[i].prr += temp.at(1)/bList[i].curP; ///curP = no of generated packets
 //bList[i].prr /= day;
-logfile <<bList[i].prr/day << "\n";
+float avgU = bList[i].utilSum/bList[i].curP;
+float cdr = float(bList[i].success)/bList[i].curP; 
+logfile <<bList[i].prr/day  << "," << avgU/day << "," << cdr/day << "," <<bList[i].success << ","  << bList[i].utilSum  << ","<< bList[i].curP << "," << avgU << "\n";
 }
 
+logfile.close();
+}
+
+//prints the green energy generated for a node
+void printGE(loraBattery bList[])
+{
+std::ofstream logfile;
+logfile.open("GE.csv");
+for (int i=0;i<nDevices;i++)
+{
+for(int j=0;j< bList[i].EstHarvestedE.size();j++)
+{bList[i].totG+= bList[i].EstHarvestedE[j];
+ //std::cout<< " node " << i << " Green " <<bList[i].EstHarvestedE[j] << "\n";
+}
+logfile<< bList[i].totG <<std::endl;
+}
 logfile.close();
 }
 
@@ -957,16 +996,21 @@ out.close();
 }
 
 
-void printAvgError()
+void printAvgError(loraBattery bList[])
 {
 std::ofstream out;
 out.open("AvgError.csv");
 
-for(int k=0;k<AggError.size();k++)
+/*for(int k=0;k<AggError.size();k++)
     {
     out<< AggError[k] <<","<<AggError2[k] << "\n";  
-    }
+    }*/
+for(int k=0;k<nDevices;k++)
+{
+bList[k].avgErr = bList[k].avgErr/bList[k].curP;
+}
 
+out<< bList[80].avgErr << "," << bList[94].avgErr << "\n";
 out.close();
 }
 
@@ -1057,7 +1101,7 @@ bList[i].normAge = (bList[i].Age - min) /(max -min) ;
 }
 }
 else bList[i].normAge = 1;
-std::cout << "Node " << i << " Age " <<  bList[i].Age << " " <<max << " " << bList[i].normAge << " " << bList[i].buffer << "\n";
+//std::cout << "Node " << i << " Age " <<  bList[i].Age << " " <<max << " " << bList[i].normAge << " " << bList[i].buffer << "\n";
 }
 
 
@@ -1105,8 +1149,8 @@ bList[i].buffer = (bList[i].Age - min) /(max -min) ;
 }
 }
 else bList[i].buffer = 1;
-std::cout << "Node " << i << " Age " <<  bList[i].Age << " " <<max << " " << bList[i].normAge << " " << bList[i].buffer << "\n";
-std::cout<<"MAX " <<maxNode << " MIN "<< minNode << "\n";
+//std::cout << "Node " << i << " Age " <<  bList[i].Age << " " <<max << " " << bList[i].normAge << " " << bList[i].buffer << "\n";
+//std::cout<<"MAX " <<maxNode << " MIN "<< minNode << "\n";
 }
 
 }
@@ -1191,12 +1235,17 @@ void countNewPacket(loraBattery bList[], Ptr<Packet const> packet){
   int id = Simulator::GetContext(); 
  // if(id == 2)  std::cout << "Count new packet called "<< std::endl;
   //error estimation
-  if((bList[id].curP >0) && (id ==7)) { //std::cout <<" id " << id <<" "<< bList[id].EstRetrans << " " << bList[id].Retrans << "\n";
+  if((bList[id].curP >0)) { 
+  //std::cout <<" id " << id <<" "<< bList[id].EstRetrans << " " << bList[id].Retrans << "\n";
   float diff = bList[id].EstRetrans - bList[id].Retrans;
-  AggError[bList[id].curP-1]= diff;}
-  if((bList[id].curP >0) && (id==23)) { //std::cout <<" id " << id <<" "<< bList[id].EstRetrans << " " << bList[id].Retrans << "\n";
+  //AggError[bList[id].curP-1]= diff; 
+  bList[id].avgErr+= diff;
+  }
+ /* if((bList[id].curP >0) && (id==23)) { //std::cout <<" id " << id <<" "<< bList[id].EstRetrans << " " << bList[id].Retrans << "\n";
   float diff = bList[id].EstRetrans - bList[id].Retrans;
-  AggError2[bList[id].curP-1]= diff;}
+  AggError2[bList[id].curP-1]= diff;
+  AvgErr += diff; 
+  }*/
   bList[id].lastGeneratedPkt = Simulator::Now();
   bList[id].curP += 1;
   bList[id].curE =0;
@@ -1319,7 +1368,7 @@ void energyNewPkt(loraBattery bList[], Ptr<Packet const> packet, uint32_t id ) {
   bList[id].curE += curEnergy;
   bList[id].txE += curEnergy;
   bList[id].energyUsed +=curEnergy; 
-  if(id ==1) std::cout << " Energy used updated " << bList[id].curE << " Time " << Simulator::Now().GetMinutes() <<"\n" ;
+ // if(id ==1) std::cout << " Energy used updated " << bList[id].curE << " Time " << Simulator::Now().GetMinutes() <<"\n" ;
  /* int curMin = int(Simulator::Now().GetMinutes());
  // std::cout<<curMin<<std::endl;
   double greenEnergy =0;
@@ -1438,6 +1487,10 @@ temp["normAge"] = bList[i].normAge;
 temp["prr"] = bList[i].prr;
 temp["avgR"] = bList[i].avgR;
 temp["txE"] =bList[i].txE;
+temp["utilSum"] =bList[i].utilSum;
+temp["success"] = bList[i].success;
+temp["avgErr"] =bList[i].avgErr;
+temp["totG"] = bList[i].totG;
 //temp["success"] = vec2;
 node_vec.append(temp);
 }
@@ -1471,9 +1524,13 @@ bList[i].avgLat = temp["avgLatency"].asFloat();
 bList[i].maxLat = temp["maxLatency"].asFloat();
 bList[i].estimatedEnergyRequired = temp["estE"].asFloat();
 bList[i].normAge = temp["normAge"].asFloat();
-bList[i].prr += temp["prr"].asFloat();
-bList[i].avgR += temp["avgR"].asFloat();
-bList[i].txE += temp["txE"].asFloat();
+bList[i].prr = temp["prr"].asFloat();
+bList[i].avgR = temp["avgR"].asFloat();
+bList[i].txE = temp["txE"].asFloat();
+bList[i].utilSum = temp["utilSum"].asFloat();
+bList[i].success =temp["success"].asInt();
+bList[i].avgErr = temp["avgErr"].asFloat();
+bList[i].totG = temp["totG"].asFloat();
 Json::Value vec = temp["selectedSlots"];
 Json::Value vec3 = temp["receptionSlots"];
 
@@ -1545,6 +1602,20 @@ std::ofstream out;
 out.open("AvgLatency.csv");
 float networkSum =0;
 networkMax =-9999;
+
+//add penalty for packets that were not sent due to 0% SOC 
+int count =0;
+for (int i =0;i<nDevices;i++)
+{
+
+count = bList[i].curP - bList[i].success;
+
+for (int j=0;j<count;j++)
+{
+bList[i].latency.push_back(bList[i].s*60);
+}
+}
+
 for (int i =0;i<nDevices;i++)
 {
 
@@ -1556,8 +1627,8 @@ for (int i =0;i<nDevices;i++)
  sum+= bList[i].latency[k];
  if(bList[i].latency[k]>max) {max = bList[i].latency[k];}
  }
- sum+= bList[i].avgLat*bList[i].latency.size()*day; //taking into account the previous day's latency
- avg = sum/(bList[i].latency.size()*(day+1));
+ sum+= bList[i].avgLat*bList[i].latency.size()*(day-1); //taking into account the previous day's latency
+ avg = sum/(bList[i].latency.size()*(day));
  bList[i].avgLat = avg;
  if(max>bList[i].maxLat) bList[i].maxLat = max;
  if(bList[i].maxLat>networkMax) networkMax= bList[i].maxLat;
@@ -1871,10 +1942,10 @@ main (int argc, char *argv[])
   Time appStopTime = Hours (simulationTime);
   PeriodicSenderHelper appHelper = PeriodicSenderHelper ();
   appHelper.SetPacketSize (30);
-  Ptr<RandomVariableStream> rv = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (8), "Max", DoubleValue (maxPeriod));
+  Ptr<RandomVariableStream> rv = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (8), "Max", DoubleValue (maxPeriod/2));
   ApplicationContainer appContainer;
   
- 
+  randomSolar(bList);
   for (NodeContainer::Iterator j = endDevices.Begin (); j != endDevices.End (); ++j)
     { 
 
@@ -1886,7 +1957,7 @@ main (int argc, char *argv[])
      // if((m==1) && (id==maxNode) ) randomValue=30;
      // if((m==1) && (id ==minNode)) randomValue=30;
       Time random_time = Minutes(randomValue);
-      appHelper.SetPeriod(random_time);
+      appHelper.SetPeriod(random_time); 
       appHelper.initDelayValue= 0; //chosenTs*tsLen;
       appContainer.Add(appHelper.Install(*j)); //attach application to nodes 
 
@@ -1907,7 +1978,7 @@ main (int argc, char *argv[])
    //  getSOC(bList);           //update the state of charge from file 
      readFromJson(bList);
      //if(m==0)
-      randomSolar(bList);
+      
      //else randomSolar_m(bList);
     
     for (int i=0;i<nDevices;i++)
@@ -2031,12 +2102,13 @@ for(int i=0;i< nDevices;i++)
     }*/
   
    printTSVariation(bList);
-   printAvgError();
+   printAvgError(bList);
    printAvgLatency(bList);
 
    printPRR(tracker,appStopTime,bList);
    printavgR(bList);
    printtxE(bList);
+   printGE(bList); 
    writeToJson(bList);
 
    printToFile(tracker, appStopTime);

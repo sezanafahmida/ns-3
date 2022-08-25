@@ -230,6 +230,17 @@ protected:
    */
   TracedCallback<Ptr<Packet const> > m_sentNewPacket;
 
+  /* Trace source that is fired when we receive a packet that is not an acknowledgement, for calculating budget */ 
+  TracedCallback<Ptr<Packet const> > m_budget;
+  
+  /*Trace source fired when a node wakes up in the DoSend() method*/
+  TracedCallback <Ptr<Packet const> ,double, uint8_t> m_doSend;
+
+  /* The channel used to send packets, decided later on randomly in DoSend() */
+  Ptr<LogicalLoraChannel> txChannel;
+
+
+  
   /**
    * The PHY instance that sits under this MAC layer.
    */

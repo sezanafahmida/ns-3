@@ -43,7 +43,12 @@ PeriodicSender::GetTypeId (void)
                    TimeValue (Seconds (0)),
                    MakeTimeAccessor (&PeriodicSender::GetInterval,
                                      &PeriodicSender::SetInterval),
-                   MakeTimeChecker ());
+                   MakeTimeChecker ())
+   .AddTraceSource ("GeneratedNewPacket",
+                     "Trace source indicating a packet "
+                     "was generated",
+                     MakeTraceSourceAccessor (&PeriodicSender::m_packetGenerated),
+                     "ns3::Packet::TracedCallback");
   // .AddAttribute ("PacketSizeRandomVariable", "The random variable that determines the shape of the packet size, in bytes",
   //                StringValue ("ns3::UniformRandomVariable[Min=0,Max=10]"),
   //                MakePointerAccessor (&PeriodicSender::m_pktSizeRV),
@@ -118,13 +123,18 @@ PeriodicSender::SendPacket (void)
     {
       packet = Create<Packet> (m_basePktSize);
     }
-  m_mac->Send (packet);
+   m_packetGenerated(packet);
+   if(alive) m_mac->Send (packet);
 
-  // Schedule the next SendPacket event
-  m_sendEvent = Simulator::Schedule (m_interval, &PeriodicSender::SendPacket,
-                                     this);
-
-  NS_LOG_DEBUG ("Sent a packet of size " << packet->GetSize ());
+  // Schedule the next SendPacket event 
+ m_sendEvent = Simulator::Schedule (m_interval, &PeriodicSender::SendPacket, this);
+ 
+   // Schedule the next SendPacket event with some clock drift 
+   // Ptr<RandomVariableStream> ClockRV = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (0), "Max", DoubleValue (3600));
+   // double randomDrift = ClockRV->GetValue();
+    //m_sendEvent = Simulator::Schedule (m_interval+ Seconds(randomDrift), &PeriodicSender::SendPacket, this);
+  
+  NS_LOG_DEBUG ("Sent a packet of size " << packet->GetSize () << " at "<< Simulator::Now().GetSeconds());
 }
 
 void

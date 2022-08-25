@@ -39,6 +39,10 @@ LorawanMac::GetTypeId (void)
                      "arrived at the MAC layer",
                      MakeTraceSourceAccessor (&LorawanMac::m_sentNewPacket),
                      "ns3::Packet::TracedCallback")
+    .AddTraceSource ("CalcBudget",
+                     "Trace source to trigger budget calculation",
+                     MakeTraceSourceAccessor (&LorawanMac::m_budget),
+                     "ns3::Packet::TracedCallback")
     .AddTraceSource ("ReceivedPacket",
                      "Trace source indicating a packet "
                      "was correctly received at the MAC layer",
@@ -48,7 +52,14 @@ LorawanMac::GetTypeId (void)
                      "Trace source indicating a packet "
                      "could not be sent immediately because of duty cycle limitations",
                      MakeTraceSourceAccessor (&LorawanMac::m_cannotSendBecauseDutyCycle),
+                     "ns3::Packet::TracedCallback")
+   .AddTraceSource ("Dosend",
+                     "Trace source indicating a packet "
+                       "arrived in the dosend() method",
+                     MakeTraceSourceAccessor (&LorawanMac::m_doSend),
                      "ns3::Packet::TracedCallback");
+
+
   return tid;
 }
 

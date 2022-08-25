@@ -145,6 +145,9 @@ public:
    */
   virtual void Send (Ptr<Packet> packet, LoraTxParameters txParams,
                      double frequencyMHz, double txPowerDbm) = 0;
+  
+//  virtual void SendAck (Ptr<Packet> packet, LoraTxParameters txParams,
+                  //   double frequencyMHz, double txPowerDbm) = 0;
 
   /**
    * Whether this device is transmitting or not.
@@ -267,6 +270,10 @@ protected:
    * \see class CallBackTraceSource
    */
   TracedCallback<Ptr<const Packet>, uint32_t> m_startSending;
+
+  /*Trace source for emulating CAD*/
+  
+  TracedCallback<Ptr<const Packet>, uint32_t, uint8_t , double, double> m_sendPacket;
 
   /**
    * The trace source fired when a packet begins the reception process from the
