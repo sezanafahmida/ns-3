@@ -70,6 +70,14 @@ public:
    */
   virtual void Send (Ptr<Packet> packet) = 0;
 
+ /**
+   * Send a beacon from mac layer
+   *
+   * \param packet The packet to send.
+   */
+ // virtual void SendBeaconFromMAC (Ptr<Packet> packet) = 0;
+
+
   /**
    * Receive a packet from the lower layer.
    *
@@ -91,6 +99,12 @@ public:
    * \param packet The packet that just finished transmission.
    */
   virtual void TxFinished (Ptr<const Packet> packet) = 0;
+  /**
+   * Perform actions after sending a beacon.
+   *
+   * \param packet The beacon that just finished transmission.
+   */
+ // virtual void BeaconTxFinished (Ptr<const Packet> packet) = 0;
 
   /**
    * Set the device this MAC layer is installed on.
@@ -209,6 +223,7 @@ public:
    * \return The number of preamble symbols to use (typically 8).
    */
   int GetNPreambleSymbols (void);
+  bool isLading =false; //enable or disable lading
 
 protected:
   /**

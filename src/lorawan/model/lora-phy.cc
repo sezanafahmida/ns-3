@@ -75,6 +75,10 @@ LoraPhy::GetTypeId (void)
                      "its received power is below the sensitivity of the receiver",
                      MakeTraceSourceAccessor (&LoraPhy::m_underSensitivity),
                      "ns3::Packet::TracedCallback");
+  //  .AddTraceSource ("SendingBeacon",
+     //                "Trace source indicating a beacon was sent from phy ",
+         //            MakeTraceSourceAccessor (&LoraPhy::m_beacon),
+               //      "ns3::Packet::TracedCallback");
   return tid;
 }
 
@@ -158,6 +162,12 @@ LoraPhy::SetTxFinishedCallback (TxFinishedCallback callback)
 {
   m_txFinishedCallback = callback;
 }
+
+/*void
+LoraPhy::SetBeaconFinishedCallback (TxFinishedCallback callback)
+{
+  m_beaconFinishedCallback = callback;
+}*/
 
 
 Time

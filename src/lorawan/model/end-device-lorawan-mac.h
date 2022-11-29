@@ -40,7 +40,7 @@ namespace lorawan {
 class EndDeviceLorawanMac : public LorawanMac
 {
 public:
-  Time ts = Seconds(0); //timeslot + a random backoff emulating cad
+  Time ts = Seconds(0); //timeslot + a random backoff 
   bool h =false;        //indicating heuristic for battery longevity
   Time cadBo = Seconds(0); //cad backoff
   static TypeId GetTypeId (void);
@@ -334,13 +334,16 @@ public:
    */
   void AddMacCommand (Ptr<MacCommand> macCommand);
 
-   Ptr<LogicalLoraChannel> ucp; //added for RT LORA
-   bool RT=false;   
-   double delay_value;
-  // bool isLading =false; //enable or disable lading
+ //  Ptr<LogicalLoraChannel> ucp; //added for RT LORA
+ //  bool RT=false;   
+ //  double delay_value;
+  
   // void SendOFFloadingPacket(Ptr <Packet const> packet); //helper for forwarding offloaded packet
  //  void SendAck(Ptr <Packet const>packetAck, int window, Ptr <const Packet> offPacket); //helper to acknowledge offloading node.
- //  int comCh= 0; //common channel id for offloading communication
+   int comCh= 0; //common channel id for offloading communication
+ 
+  //length of the offloading window in seconds (the time when lading nodes listen to the common channel indicated in #comCh)  
+  double m_offloadingWindowLength;
 protected:
   /**
    * Structure representing the parameters that will be used in the
@@ -414,6 +417,8 @@ protected:
    */
   uint8_t m_receiveWindowDurationInSymbols;
 
+  
+
   /**
    * List of the MAC commands that need to be applied to the next UL packet.
    */
@@ -429,6 +434,8 @@ protected:
    * the channel list.
    */
   Ptr<UniformRandomVariable> m_uniformRV;
+  
+  Ptr<UniformRandomVariable> m_tsRV; //random variable to add random delay to packet sending time within the timeslot
 
   /////////////////
   //  Callbacks  //
@@ -502,6 +509,8 @@ private:
   LorawanMacHeader::MType m_mType;
 
   uint8_t m_currentFCnt;
+  
+  uint8_t m_currentBCnt; //beacon count;
   
  
  

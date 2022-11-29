@@ -121,14 +121,16 @@ EndDeviceLorawanMac::EndDeviceLorawanMac ()
       m_lastKnownGatewayCount (0),
       m_aggregatedDutyCycle (1),
       m_mType (LorawanMacHeader::CONFIRMED_DATA_UP),
-      m_currentFCnt (0)
+      m_currentFCnt (0),
+      m_currentBCnt(0)
 {
   NS_LOG_FUNCTION (this);
 
   // Initialize the random variable we'll use to decide which channel to
   // transmit on.
   m_uniformRV = CreateObject<UniformRandomVariable> ();
-
+  
+  m_tsRV = CreateObject<UniformRandomVariable> ();
   // Void the transmission event
   m_nextTx = EventId ();
   m_nextTx.Cancel ();
@@ -166,8 +168,11 @@ EndDeviceLorawanMac::Send (Ptr<Packet> packet)
   // If it is not possible to transmit now because of the duty cycle,
   // or because we are receiving, schedule a tx/retx later 
  // insert a random backoff here/
-       
+ /* if(h){
+  double random_backoff = m_tsRV->GetValue(0, 30); //backoff within (0,ts/2);
+  ts = ts+ Seconds(random_backoff);   // }*/
   Time netxTxDelay = std::max(ts,GetNextTransmissionDelay ());  //maximum of dutycycle delay and timeslot given by upper layer.s
+  
   if (netxTxDelay != Seconds (0))
     {
       postponeTransmission (netxTxDelay, packet);
@@ -177,8 +182,9 @@ EndDeviceLorawanMac::Send (Ptr<Packet> packet)
    Ptr<LogicalLoraChannel> txChannel;
    //std::cout << "debug: EDMAC RT " << RT << "\n"  ;
   // Pick a channel on which to transmit the packet, Changed for RT LORA
-  if(RT)  { txChannel =  ucp;  }
-  else  txChannel =  GetChannelForTx ();
+//  if(RT)  { txChannel =  ucp;  }
+//  else 
+ txChannel =  GetChannelForTx ();
    
 
   if (!(txChannel && m_retxParams.retxLeft > 0))
@@ -204,6 +210,35 @@ EndDeviceLorawanMac::Send (Ptr<Packet> packet)
     }
 }
 
+/*void
+EndDeviceLorawanMac::SendBeaconFromMAC (Ptr<Packet> packet)
+
+{
+m_currentBCnt++;
+txChannel = comCh; //use common channel
+m_dataRate = 5;    //use lowest datarate
+//how to select the tx power
+NS_LOG_DEBUG ("Received a new beacon from application. Resetting retransmission parameters.");
+NS_LOG_DEBUG ("APP packet: " << packet << ".");
+// Add the Lora Frame Header to the packet
+LoraFrameHeader frameHdr;
+ApplyNecessaryOptions (frameHdr);
+packet->AddHeader (frameHdr);
+
+NS_LOG_INFO ("Added frame header of size " << frameHdr.GetSerializedSize () <<
+                   " bytes.");
+
+// Add the Lora Mac header to the packet
+LorawanMacHeader macHdr;
+ApplyNecessaryOptions (macHdr);
+packet->AddHeader (macHdr);
+
+NS_LOG_INFO ("Added MAC header of size " << macHdr.GetSerializedSize () <<" bytes.");
+SendToPhy (packet);
+
+
+}*/
+
 void
 EndDeviceLorawanMac::postponeTransmission (Time netxTxDelay, Ptr<Packet> packet)
 {
@@ -223,9 +258,9 @@ EndDeviceLorawanMac::DoSend (Ptr<Packet> packet)
   txChannel =  GetChannelForTx ();
   uint8_t sf = GetSfFromDataRate (m_dataRate);
   
-  if(h)
+/*  if(h)
   {
-   m_doSend(packet, txChannel->GetFrequency(), sf);
+   m_doSend(packet, txChannel->GetFrequency(), sf);//cad callback
    if (cadBo != Seconds (0))
     {
       postponeTransmission (cadBo, packet);
@@ -233,7 +268,7 @@ EndDeviceLorawanMac::DoSend (Ptr<Packet> packet)
       return;
     }
   }
-
+*/
   
   NS_LOG_FUNCTION (this);
   // Checking if this is the transmission of a new packet
@@ -542,6 +577,10 @@ EndDeviceLorawanMac::GetMType (void)
 void
 EndDeviceLorawanMac::TxFinished (Ptr<const Packet> packet)
 { }
+
+/*void
+EndDeviceLorawanMac::BeaconTxFinished (Ptr<const Packet> packet)
+{ }*/
 
 Time
 EndDeviceLorawanMac::GetNextClassTransmissionDelay (Time waitingTime)

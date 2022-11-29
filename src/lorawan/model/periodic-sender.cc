@@ -137,6 +137,36 @@ PeriodicSender::SendPacket (void)
   NS_LOG_DEBUG ("Sent a packet of size " << packet->GetSize () << " at "<< Simulator::Now().GetSeconds());
 }
 
+/*void
+PeriodicSender::SendBeacon (void)
+{
+  NS_LOG_FUNCTION (this);
+
+  // Create and send a new packet
+  Ptr<Packet> packet;
+  if (m_pktSizeRV)
+    {
+      int randomsize = m_pktSizeRV->GetInteger ();
+      packet = Create<Packet> (m_basePktSize + randomsize);
+    }
+  else
+    {
+      packet = Create<Packet> (m_basePktSize);
+    }
+   m_packetGenerated(packet);
+   if(alive) m_mac->SendBeaconFromMAC (packet);
+
+  // Schedule the next SendPacket event 
+ m_offEvent = Simulator::Schedule (m_offPeriod, &PeriodicSender::SendBeacon, this);
+ 
+   // Schedule the next SendPacket event with some clock drift 
+   // Ptr<RandomVariableStream> ClockRV = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (0), "Max", DoubleValue (3600));
+   // double randomDrift = ClockRV->GetValue();
+    //m_sendEvent = Simulator::Schedule (m_interval+ Seconds(randomDrift), &PeriodicSender::SendPacket, this);
+  
+  NS_LOG_DEBUG ("Sent a beacon of size " << packet->GetSize () << " at "<< Simulator::Now().GetSeconds());
+}*/
+
 void
 PeriodicSender::StartApplication (void)
 {
@@ -158,6 +188,8 @@ PeriodicSender::StartApplication (void)
                 m_initialDelay.GetSeconds () << " seconds delay");
   m_sendEvent = Simulator::Schedule (m_initialDelay,
                                      &PeriodicSender::SendPacket, this);
+
+ // if(isLading)  m_offEvent = Simulator::Schedule (m_offDelay, &PeriodicSender::SendBeacon, this);
   NS_LOG_DEBUG ("Event Id: " << m_sendEvent.GetUid ());
 }
 

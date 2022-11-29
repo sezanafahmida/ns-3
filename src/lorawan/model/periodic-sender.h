@@ -68,7 +68,9 @@ public:
    * Send a packet using the LoraNetDevice's Send method
    */
   void SendPacket (void);
-
+  /** Send a beacon using the LoraNetDevices's send method **/
+ // void SendBeacon(void);
+  
   /**
    * Start the application by scheduling the first SendPacket event
    */
@@ -82,6 +84,8 @@ public:
   TracedCallback<Ptr<Packet const> > m_packetGenerated;
   
   bool alive=true; /*if battery is alive*/
+  
+  bool isLading=false; // /*if on lading mode*/ 
 
 private:
   /**
@@ -89,16 +93,25 @@ private:
    */
   Time m_interval;
 
+
   /**
    * The initial delay of this application
    */
   Time m_initialDelay;
 
   /**
+   * The offloading delay of this application
+   */
+  Time m_offDelay= Seconds(5); 
+
+  /**
    * The sending event scheduled as next
    */
   EventId m_sendEvent;
-
+  /**
+  * The beacon sending event scheduled as next
+  */
+  EventId m_offEvent;
   /**
    * The MAC layer of this node
    */

@@ -794,9 +794,11 @@ bList[i].prr += temp.at(1)/bList[i].curP; ///curP = no of generated packets
 float avgU = bList[i].utilSum/bList[i].curP;
 float cdr = float(bList[i].success)/bList[i].curP; 
 logfile <<bList[i].prr/day  << "," << avgU/day << "," << cdr/day << "," <<bList[i].success << ","  << bList[i].utilSum  << ","<< bList[i].curP << "," << avgU << "\n";
+if( ( cdr/day >1)|| (bList[i].prr/day >1) || (avgU/day >1))  std::cout<< "Prr greater than one found on day "  << day <<"\n";
 }
 
 logfile.close();
+
 }
 
 //prints the green energy generated for a node
@@ -1270,7 +1272,8 @@ void countNewPacket(loraBattery bList[], Ptr<Packet const> packet){
   bList[id].decideTS2();
 
  // if(id == 2) std::cout << "Calling Decide TS for period " << bList[id].curP  << " slot " << bList[id].curSlot<< std::endl;
-  edLorawanMac->ts = Minutes(bList[id].curSlot * (tsLen/60));
+  Ptr<RandomVariableStream> ts_rv = CreateObjectWithAttributes<UniformRandomVariable> ( "Min", DoubleValue (0), "Max", DoubleValue (tsLen/2));
+  edLorawanMac->ts = Minutes(bList[id].curSlot * (tsLen/60))+Seconds(ts_rv->GetValue());
   /*int dr =0;
   if(bList[id].lifeSpan < 0.8) 
   {

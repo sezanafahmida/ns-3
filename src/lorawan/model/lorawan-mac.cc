@@ -101,6 +101,7 @@ LorawanMac::SetPhy (Ptr<LoraPhy> phy)
   m_phy->SetReceiveOkCallback (MakeCallback (&LorawanMac::Receive, this));
   m_phy->SetReceiveFailedCallback (MakeCallback (&LorawanMac::FailedReception, this));
   m_phy->SetTxFinishedCallback (MakeCallback (&LorawanMac::TxFinished, this));
+ // if(isLading) m_phy->SetBeaconFinishedCallback(MakeCallback (&LorawanMac::BeaconTxFinished, this));
 }
 
 LogicalLoraChannelHelper

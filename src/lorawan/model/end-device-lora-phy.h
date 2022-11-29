@@ -157,6 +157,9 @@ public:
   // Implementation of LoraPhy's pure virtual functions
   virtual void Send (Ptr<Packet> packet, LoraTxParameters txParams,
                      double frequencyMHz, double txPowerDbm) = 0;
+   // Implementation of LoraPhy's pure virtual functions
+//  virtual void SendBeacon (Ptr<Packet> packet, LoraTxParameters txParams,
+                    // double frequencyMHz, double txPowerDbm) = 0;
 
   // Implementation of LoraPhy's pure virtual functions
   virtual bool IsOnFrequency (double frequencyMHz);

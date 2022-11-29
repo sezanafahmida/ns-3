@@ -122,6 +122,7 @@ PeriodicSenderHelper::InstallPriv (Ptr<Node> node) const
  //app->SetInitialDelay(Seconds(0));
   app->SetInitialDelay (Seconds (m_initialDelay->GetValue (0, initDelayValue)));
   app->SetPacketSize (m_pktSize);
+  app->isLading = Lading;
   if (m_pktSizeRV)
     {
       app->SetPacketSizeRandomVariable (m_pktSizeRV);

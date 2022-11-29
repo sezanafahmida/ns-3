@@ -112,6 +112,54 @@ SimpleEndDeviceLoraPhy::Send (Ptr<Packet> packet, LoraTxParameters txParams,
     }
 }
 
+
+/*void
+SimpleEndDeviceLoraPhy::SendBeacon (Ptr<Packet> packet, LoraTxParameters txParams,
+                              double frequencyMHz, double txPowerDbm)
+
+{
+
+// We must be either in STANDBY or SLEEP mode to send a packet
+  if (m_state != STANDBY && m_state != SLEEP)
+    {
+      NS_LOG_INFO ("Cannot send because device is currently not in STANDBY or SLEEP mode");
+      return;
+    }
+
+  // Compute the duration of the transmission
+  Time duration = GetOnAirTime (packet, txParams);
+
+  // We can send the packet: switch to the TX state
+  SwitchToTx (txPowerDbm);
+
+  // Tag the packet with information about its Spreading Factor
+  LoraTag tag;
+  packet->RemovePacketTag (tag);
+  tag.SetSpreadingFactor (txParams.sf);
+  packet->AddPacketTag (tag);
+
+  // Send the packet over the channel
+  NS_LOG_INFO ("Sending the packet in the channel");
+  m_channel->Send (this, packet, txPowerDbm, txParams, duration, frequencyMHz);
+
+  Simulator::Schedule (duration, &EndDeviceLoraPhy::SwitchToStandby, this);
+
+  // Schedule the txFinished callback, if it was set
+  // The call is scheduled just after the switch to standby in case the upper
+  // layer wishes to change the state. This ensures that it will find a PHY in
+  // STANDBY mode.
+  if (!m_beaconFinishedCallback.IsNull ())
+    {
+      Simulator::Schedule (duration + NanoSeconds (10),
+                           &SimpleEndDeviceLoraPhy::m_beaconFinishedCallback, this,
+                           packet);
+    }
+
+}*/
+
+
+
+
 void
 SimpleEndDeviceLoraPhy::StartReceive (Ptr<Packet> packet, double rxPowerDbm,
                                       uint8_t sf, Time duration, double frequencyMHz)

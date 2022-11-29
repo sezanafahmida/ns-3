@@ -104,6 +104,15 @@ public:
    */
   typedef Callback<void, Ptr<const Packet> > TxFinishedCallback;
 
+    /**
+   * Type definition for a callback to call when a beacon has finished sending.
+   *
+   * This callback is used by the MAC layer, to determine when to start receive
+   * window.
+   */
+  typedef Callback<void, Ptr<const Packet> > BeaconFinishedCallback;
+  
+
   /**
    * Start receiving a packet.
    *
@@ -145,9 +154,23 @@ public:
    */
   virtual void Send (Ptr<Packet> packet, LoraTxParameters txParams,
                      double frequencyMHz, double txPowerDbm) = 0;
+
+
+   /**
+   * Instruct the PHY to send a offloading beacon according to some parameters.
+   *
+   * \param packet The packet to send.
+   * \param txParams The desired transmission parameters.
+   * \param frequencyMHz The frequency on which to transmit.
+   * \param txPowerDbm The power in dBm with which to transmit the packet.
+   */
+
+ // virtual void SendBeacon (Ptr<Packet> packet, LoraTxParameters txParams,
+                    // double frequencyMHz, double txPowerDbm) = 0;
   
+
 //  virtual void SendAck (Ptr<Packet> packet, LoraTxParameters txParams,
-                  //   double frequencyMHz, double txPowerDbm) = 0;
+  //                   double frequencyMHz, double txPowerDbm) = 0;
 
   /**
    * Whether this device is transmitting or not.
@@ -190,6 +213,15 @@ public:
    * notified after the transmission of a packet.
    */
   void SetTxFinishedCallback (TxFinishedCallback callback);
+
+  /**
+   * Set the callback to call after transmission of a beacon.
+   *
+   * This method is typically called by an upper MAC layer that wants to be
+   * notified after the transmission of a beacon.
+   */
+//  void SetBeaconFinishedCallback (BeaconFinishedCallback callback);
+ 
 
   /**
    * Get the mobility model associated to this PHY.
@@ -329,6 +361,11 @@ protected:
    * The callback to perform upon the end of a transmission.
    */
   TxFinishedCallback m_txFinishedCallback;
+
+   /**
+   * The callback to perform upon the end of a beacon transmission.
+   */
+  TxFinishedCallback m_beaconFinishedCallback;
 };
 
 } /* namespace ns3 */

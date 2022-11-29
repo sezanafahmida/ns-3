@@ -324,6 +324,51 @@ ClassAEndDeviceLorawanMac::TxFinished (Ptr<const Packet> packet)
   m_phy->GetObject<EndDeviceLoraPhy> ()->SwitchToSleep ();
 }
 
+
+/*void
+ClassAEndDeviceLorawanMac::BeaconTxFinished (Ptr<const Packet> packet)
+{
+  //Switch to standby
+  m_phy->GetObject<EndDeviceLoraPhy> ()->SwitchToStandby ();
+  //Close  receive window after #OffloadingWindow seconds
+ Simulator::Schedule(Seconds(m_offloadingWindowLength), &ClassAEndDeviceLorawanMac::CloseOffloadingWindow, this);
+
+
+}*/
+
+
+/*void
+ClassAEndDeviceLorawanMac::CloseOffloadingeWindow (void)
+{
+
+
+  Ptr<EndDeviceLoraPhy> phy = m_phy->GetObject<EndDeviceLoraPhy> ();
+
+  // Check the Phy layer's state:
+  // - RX -> We are receiving a preamble.
+  // - STANDBY -> Nothing was received.
+  // - SLEEP -> We have received a packet.
+  // We should never be in TX or SLEEP mode at this point
+  switch (phy->GetState ())
+    {
+    case EndDeviceLoraPhy::TX:
+      NS_ABORT_MSG ("PHY was in TX mode when attempting to " <<
+                    "close the offloading receive window.");
+      break;
+    case EndDeviceLoraPhy::RX:
+      // PHY is receiving: let it finish. The Receive method will switch it back to SLEEP.
+      break;
+    case EndDeviceLoraPhy::SLEEP:
+      // PHY has received, and the MAC's Receive already put the device to sleep
+      break;
+    case EndDeviceLoraPhy::STANDBY:
+      // Turn PHY layer to SLEEP
+      phy->SwitchToSleep ();
+      break;
+    }
+
+}*/
+
 void
 ClassAEndDeviceLorawanMac::OpenFirstReceiveWindow (void)
 {

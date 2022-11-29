@@ -96,6 +96,12 @@ public:
   void CloseFirstReceiveWindow (void);
 
   /**
+   * Perform operations needed to close the offloading window.
+   */
+  void CloseOffloadingWindow (void);
+
+
+  /**
    * Perform operations needed to close the second receive window.
    */
   void CloseSecondReceiveWindow (void);
