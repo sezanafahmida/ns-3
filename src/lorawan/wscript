@@ -74,6 +74,7 @@ def build(bld):
     headers = bld(features='ns3header')
     headers.module = 'lorawan'
     headers.source = [
+        'model/Lora_battery.h',
         'model/lora-net-device.h',
         'model/lorawan-mac.h',
         'model/lora-phy.h',

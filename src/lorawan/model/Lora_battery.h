@@ -69,7 +69,7 @@ float energyUsed = 0.0; // Get Energy consumed in previous slot
 float estimatedEnergyRequired = energyUsed / Retrans ; // Energy required for transmission 
 int result = 1; // 1 if transmission in this period was sucessful else 0
 std::vector<float> SelectedSlots; // Increment by 1 when a timeslot t is selected in period p
-std::vector<std::vector<float>> SlotSuccess; // Increment by 1 if the selected timeslot t in a period p was sucessfull
+std::vector<std::vector<float>> SlotSuccess; // Increment by 1 if the selected timeslot t in a period p was successful
 std::vector<std::vector<float>> Prob; // Probability for each retransmission in a timeslot
 std::vector<float> EstHarvestedE; // Estimated Harvested Energy
 std::vector<float> w;  // Weight for energy harvested and energy required in the period
@@ -83,6 +83,7 @@ std::vector <int> TSVariation; //to store how many times each timeslot was selec
 std::vector<float> u; //utility
 int EstRetrans =1; //estimated retransmission number for this slot
 std::vector<float> latency; //packet latencies 
+std::vector<int> outcome; //packet outcome success 1, failure 0, added for per packet latency calculation
 float avgLat=0;
 Time lastGeneratedPkt; //holds the time of the most recently generated packet
 float maxLat=0;
