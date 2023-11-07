@@ -991,7 +991,7 @@ void printTrace(int id, loraBattery Blist[])
 std::stringstream ss;
 ss<<"Trace/trace_"<< id << ".csv";
 std::ofstream tracefile;
-tracefile.open(ss.str());
+tracefile.open(ss.str(), std::ios_base::app);
 
 std::vector<double> tempSOC = Blist[id].SOC;
 

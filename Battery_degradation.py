@@ -19,8 +19,8 @@ def Linear_degradation(soc,days,prev_cyl,id,day,prevAvg,l,T, prev_cal):
     
     n = 0
     t = TimeSlots_Length * 60
-   # T = 25  #temperature
-    t_tot = (3600 * 24)  #* (days)
+    T = 25  #temperature
+    t_tot = (3600 * days)
     
     dischargeDepth = []
     meanSoc = []
@@ -69,10 +69,10 @@ def Linear_degradation(soc,days,prev_cyl,id,day,prevAvg,l,T, prev_cal):
     l=l+len(meanSoc)  #no of charge-discharge cycle
     test = sum(d_DoD[i] * d_SoC[i] * d_Crate * d_temp * cycleCount[i] for i in range(0, len(dischargeDepth))) 
     
-    d_cycle = prev_cyl + sum(d_DoD[i] * d_SoC[i] * d_Crate * d_temp * cycleCount[i] for i in range(0, len(dischargeDepth))) # total cycle ageing
+    d_cycle = sum(d_DoD[i] * d_SoC[i] * d_Crate * d_temp * cycleCount[i] for i in range(0, len(dischargeDepth))) # total cycle ageing
     
 
-    d_cal = prev_cal + (k_cal * t_tot * d_temp * exp(k_soc * (SoC_avg - SoC_ref)))   #0.5 -1.5 
+    d_cal = (k_cal * t_tot * d_temp * exp(k_soc * (SoC_avg - SoC_ref)))   #0.5 -1.5   #we shouldn't do this.
     #if id == 1:
       #  print("dcal ", d_cal )
     d = d_cycle + d_cal
@@ -99,7 +99,7 @@ id = 0
 if day>1:
     data=pd.read_csv(dFilename,names=["d","d_cycle","d_cal","d_nl","SoC_avg","len","d_temp"])
 dout =  open("/home/gp7532/ns-3/d_out.csv","w")
-tempData = pd.read_csv('/home/gp7532/ns-3/mi_daily_temp.csv')
+#tempData = pd.read_csv('/home/gp7532/ns-3/mi_daily_temp.csv')
 #T = random.gauss(tempData.loc[tempData['newDay']==day%365]['Temperature'], 5) 
 #print(T)
 for id in range(0,N): 
@@ -125,9 +125,9 @@ for id in range(0,N):
         avg = 0
         l=0
    #print(mean)
-    T = random.gauss(tempData.loc[tempData['newDay']==day%365]['Temperature'], 5) 
-    print(T)
-    d,d_cal,d_cycle,SoC_avg,l,d_temp = Linear_degradation(soc,day+dayOffset,prev_cyl,id,day,avg,l,T,prev_cal) #get the new degradation, D_cycle
+   # T = random.gauss(tempData.loc[tempData['newDay']==day%365]['Temperature'], 5) 
+   # print(T)
+    d,d_cal,d_cycle,SoC_avg,l,d_temp = Linear_degradation(soc,day+dayOffset,prev_cyl,id,day,avg,l,25,prev_cal) #get the new degradation, D_cycle
     z = Nonlinear_degradation(d)  #get non-linear Degradation
     if z>=0.2:
         print("battery died on day: ", day)
