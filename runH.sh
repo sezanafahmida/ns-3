@@ -54,7 +54,7 @@ for day in $(seq 1 1 2)
   fi
 
   
-  rm /home/gp7532/ns-3/Trace/trace*
+  #rm /home/gp7532/ns-3/Trace/trace*
   done
 
 mv /home/gp7532/ns-3/output.csv /home/gp7532/ns-3/Result_h/output_h_d${day}_n${node_num}_t${theta}_h${h}_i${initD}_nw_${nw}.csv
